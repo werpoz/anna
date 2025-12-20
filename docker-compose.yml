@@ -1,0 +1,25 @@
+services:
+  dragonfly:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    ports:
+      - "6379:6379"
+    command: ["--logtostderr"]
+    restart: unless-stopped
+    volumes:
+      - dragonfly-data:/data
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: anna
+      POSTGRES_PASSWORD: anna
+      POSTGRES_DB: anna
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  dragonfly-data:
+  postgres-data:
