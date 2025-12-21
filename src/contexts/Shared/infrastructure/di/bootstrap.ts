@@ -4,7 +4,7 @@ import '../../../User/infrastructure/di/registerUserHandlers';
 import { InMemoryCommandBus } from '../CommandBus/InMemoryCommandBus';
 import { InMemoryQueryBus } from '../QueryBus/InMemoryQueryBus';
 import { TOKENS } from './tokens';
-import { ConsoleLogger } from '../Logger/ConsoleLogger';
+import { PinoLogger } from '../Logger/PinoLogger';
 import { InMemoryUserRepository } from '../../../User/infrastructure/InMemoryUserRepository';
 import type { CommandHandler } from '../../domain/CommandHandler';
 import type { Command } from '../../domain/Command';
@@ -25,7 +25,7 @@ export type AppContext = {
 
 export const buildAppContext = (): AppContext => {
   if (!container.isRegistered(TOKENS.Logger)) {
-    container.registerSingleton(TOKENS.Logger, ConsoleLogger);
+    container.registerSingleton(TOKENS.Logger, PinoLogger);
   }
 
   if (!container.isRegistered(TOKENS.UserRepository)) {

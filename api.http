@@ -9,15 +9,3 @@ Content-Type: application/json
 
 ### Elysia - get user (replace :id with the response id)
 GET http://localhost:3000/users/:id
-
-### Hono - create user
-POST http://localhost:3001/users
-Content-Type: application/json
-
-{
-  "name": "Alan Turing",
-  "email": "alan@example.com"
-}
-
-### Hono - get user (replace :id with the response id)
-GET http://localhost:3001/users/:id

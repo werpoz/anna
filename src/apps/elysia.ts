@@ -4,6 +4,11 @@ import { CreateUserCommand } from '../contexts/User/application/Create/CreateUse
 import { FindUserQuery } from '../contexts/User/application/Find/FindUserQuery';
 import type { UserResponse } from '../contexts/User/application/Find/UserResponse';
 import { UserDoesNotExistError } from '../contexts/User/domain/UserDoesNotExistError';
+import { getMetrics, metricsContentType } from '../contexts/Shared/infrastructure/observability/metrics';
+import { initTelemetry } from '../contexts/Shared/infrastructure/observability/telemetry';
+import { env } from '../contexts/Shared/infrastructure/config/env';
+
+initTelemetry(`${env.otelServiceName}-elysia`);
 
 const { commandBus, queryBus } = buildAppContext();
 
@@ -36,6 +41,11 @@ app.get('/users/:id', async ({ params, set }) => {
 
     throw error;
   }
+});
+
+app.get('/metrics', async ({ set }) => {
+  set.headers['content-type'] = metricsContentType;
+  return await getMetrics();
 });
 
 app.listen(3000);

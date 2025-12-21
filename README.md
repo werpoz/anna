@@ -20,6 +20,10 @@ docker compose up -d
 Defaults (puedes sobrescribir con variables de entorno):
 - `DATABASE_URL=postgres://anna:anna@localhost:5432/anna`
 - `REDIS_URL=redis://localhost:6379`
+- `LOG_LEVEL=info`
+- `OTEL_SERVICE_NAME=anna`
+- `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces`
+- `METRICS_PORT=9100`
 - `EVENTS_STREAM=domain-events`
 - `EVENTS_DLQ_STREAM=domain-events-dlq`
 - `EVENTS_GROUP=domain-events-group`
@@ -51,9 +55,7 @@ Terminal 2:
 bun run worker:events
 ```
 
-## API (elige una)
-
-Elysia:
+## API (Elysia)
 ```bash
 bun run app:elysia
 ```
@@ -73,6 +75,33 @@ Luego consulta:
 ```bash
 curl http://localhost:3000/users/<id>
 ```
+
+## Observabilidad
+- Logs estructurados con `pino`.
+- Métricas Prometheus en `/metrics` (API) y en workers si defines `METRICS_PORT`.
+- Tracing con OpenTelemetry (OTLP HTTP) si defines `OTEL_EXPORTER_OTLP_ENDPOINT`.
+
+## Session Worker (propuesta)
+- Proceso separado que consume comandos de sesiones y mantiene sockets de Baileys.
+- Entradas: stream de comandos (ej. `session-commands`).
+- Salidas: eventos al stream (ej. `session-events` o `domain-events`) via outbox.
+- Storage: credenciales/estado en Redis o Postgres (idealmente cifrado).
+- Idempotencia: cada comando con `commandId` y dedupe en Redis/DB.
+
+## Esquema de comandos (propuesto)
+- `session.create`: `{ commandId, sessionId, tenantId, phone?, metadata? }`
+- `session.close`: `{ commandId, sessionId, tenantId, reason? }`
+- `session.sendMessage`: `{ commandId, sessionId, tenantId, to, messageId, content }`
+- `session.reconnect`: `{ commandId, sessionId, tenantId }`
+
+## Esquema de eventos (propuesto)
+- `session.created`: `{ eventId, sessionId, tenantId }`
+- `session.qr.updated`: `{ eventId, sessionId, tenantId, qr, expiresAt }`
+- `session.status.connected`: `{ eventId, sessionId, tenantId, phone, connectedAt }`
+- `session.status.disconnected`: `{ eventId, sessionId, tenantId, reason, disconnectedAt }`
+- `session.message.received`: `{ eventId, sessionId, tenantId, messageId, from, content, timestamp }`
+- `session.message.sent`: `{ eventId, sessionId, tenantId, messageId, to, status }`
+- `session.error`: `{ eventId, sessionId, tenantId, code, message }`
 
 ## Pendientes para nivel profesional
 - Observabilidad: logs estructurados, métricas (latencia, fallos), tracing.

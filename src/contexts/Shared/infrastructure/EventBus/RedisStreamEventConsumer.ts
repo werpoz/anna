@@ -3,6 +3,9 @@ import type { DomainEvent, DomainEventClass } from '../../domain/DomainEvent';
 import type { DomainEventSubscriber } from '../../domain/DomainEventSubscriber';
 import { DomainEventSubscribers } from './DomainEventSubscribers';
 import type { DeadLetterRepository } from '../DeadLetter/DeadLetterRepository';
+import { metrics } from '../observability/metrics';
+import { logger } from '../observability/logger';
+import { SpanStatusCode, trace } from '@opentelemetry/api';
 
 type ConsumerOptions = {
   stream: string;
@@ -136,6 +139,14 @@ export class RedisStreamEventConsumer {
       attributes: payload,
     }) as DomainEvent;
 
+    const startTime = Date.now();
+    const span = trace.getTracer('event-consumer').startSpan('event.process', {
+      attributes: {
+        'event.name': eventName,
+        'event.id': eventId,
+      },
+    });
+
     try {
       const subscribers = this.subscribers.getSubscribersFor(eventName) as Array<
         DomainEventSubscriber<DomainEvent>
@@ -145,11 +156,22 @@ export class RedisStreamEventConsumer {
         await subscriber.on(event);
       }
 
+      metrics.eventsProcessed.inc({ event_name: eventName });
+      metrics.eventProcessingDuration.observe({ event_name: eventName }, Date.now() - startTime);
       await this.markProcessed(eventId);
       await this.clearAttempts(eventId);
       await this.redis.xack(this.options.stream, this.options.group, entryId);
+      span.setStatus({ code: SpanStatusCode.OK });
     } catch (error) {
+      metrics.eventsFailed.inc({ event_name: eventName });
+      metrics.eventProcessingDuration.observe({ event_name: eventName }, Date.now() - startTime);
+      const exception = error instanceof Error ? error : new Error(String(error));
+      span.recordException(exception);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: exception.message });
+      logger.error(`Event processing failed: ${eventName} ${eventId}`);
       await this.handleFailure(entryId, event, error);
+    } finally {
+      span.end();
     }
   }
 
