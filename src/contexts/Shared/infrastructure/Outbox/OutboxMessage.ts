@@ -1,4 +1,4 @@
-import type { DomainEvent } from '../../domain/DomainEvent';
+import type { DomainEvent } from '@/contexts/Shared/domain/DomainEvent';
 
 export type OutboxStatus = 'pending' | 'processing' | 'published';
 

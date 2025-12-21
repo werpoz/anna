@@ -1,5 +1,5 @@
-import { DomainEvent } from '../../domain/DomainEvent';
-import type { DomainEventSubscriber } from '../../domain/DomainEventSubscriber';
+import { DomainEvent } from '@/contexts/Shared/domain/DomainEvent';
+import type { DomainEventSubscriber } from '@/contexts/Shared/domain/DomainEventSubscriber';
 
 export class DomainEventSubscribers {
   private readonly mapping: Map<string, Array<DomainEventSubscriber<DomainEvent>>>;

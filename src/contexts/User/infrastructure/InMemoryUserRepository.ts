@@ -1,6 +1,6 @@
-import type { UserRepository } from '../domain/UserRepository';
-import { User } from '../domain/User';
-import { UserId } from '../domain/UserId';
+import type { UserRepository } from '@/contexts/User/domain/UserRepository';
+import { User } from '@/contexts/User/domain/User';
+import { UserId } from '@/contexts/User/domain/UserId';
 import { injectable } from 'tsyringe';
 
 @injectable()

@@ -1,6 +1,6 @@
-import type { EventBus } from '../../domain/EventBus';
-import { DomainEvent } from '../../domain/DomainEvent';
-import { DomainEventSubscribers } from './DomainEventSubscribers';
+import type { EventBus } from '@/contexts/Shared/domain/EventBus';
+import { DomainEvent } from '@/contexts/Shared/domain/DomainEvent';
+import { DomainEventSubscribers } from '@/contexts/Shared/infrastructure/EventBus/DomainEventSubscribers';
 
 export class InMemoryEventBus implements EventBus {
   private subscribers: DomainEventSubscribers;

@@ -1,5 +1,5 @@
-import type { Response } from '../../../Shared/domain/Response';
-import { User } from '../../domain/User';
+import type { Response } from '@/contexts/Shared/domain/Response';
+import { User } from '@/contexts/User/domain/User';
 
 export class UserResponse implements Response {
   readonly id: string;

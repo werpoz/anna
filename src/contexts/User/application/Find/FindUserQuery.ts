@@ -1,4 +1,4 @@
-import { Query } from '../../../Shared/domain/Query';
+import { Query } from '@/contexts/Shared/domain/Query';
 
 export class FindUserQuery extends Query {
   readonly id: string;

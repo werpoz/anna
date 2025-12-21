@@ -1,8 +1,8 @@
-import type Logger from '../../Shared/domain/Logger';
-import type { DomainEventSubscriber } from '../../Shared/domain/DomainEventSubscriber';
+import type Logger from '@/contexts/Shared/domain/Logger';
+import type { DomainEventSubscriber } from '@/contexts/Shared/domain/DomainEventSubscriber';
 import { inject, injectable } from 'tsyringe';
-import { TOKENS } from '../../Shared/infrastructure/di/tokens';
-import { UserCreatedDomainEvent } from '../domain/UserCreatedDomainEvent';
+import { TOKENS } from '@/contexts/Shared/infrastructure/di/tokens';
+import { UserCreatedDomainEvent } from '@/contexts/User/domain/UserCreatedDomainEvent';
 
 @injectable()
 export class LogUserCreatedOnUserCreated implements DomainEventSubscriber<UserCreatedDomainEvent> {

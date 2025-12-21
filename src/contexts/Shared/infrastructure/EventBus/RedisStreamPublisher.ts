@@ -1,5 +1,5 @@
 import type Redis from 'ioredis';
-import type { OutboxMessage } from '../Outbox/OutboxMessage';
+import type { OutboxMessage } from '@/contexts/Shared/infrastructure/Outbox/OutboxMessage';
 
 export class RedisStreamPublisher {
   private readonly redis: Redis;

@@ -1,5 +1,5 @@
-import { InvalidArgumentError } from '../../Shared/domain/value-object/InvalidArgumentError';
-import { StringValueObject } from '../../Shared/domain/value-object/StringValueObject';
+import { InvalidArgumentError } from '@/contexts/Shared/domain/value-object/InvalidArgumentError';
+import { StringValueObject } from '@/contexts/Shared/domain/value-object/StringValueObject';
 
 export class UserName extends StringValueObject {
   constructor(value: string) {

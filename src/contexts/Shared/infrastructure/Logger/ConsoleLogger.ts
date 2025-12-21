@@ -1,4 +1,4 @@
-import type Logger from '../../domain/Logger';
+import type Logger from '@/contexts/Shared/domain/Logger';
 import { injectable } from 'tsyringe';
 
 

@@ -1,4 +1,4 @@
-import { UserId } from './UserId';
+import { UserId } from '@/contexts/User/domain/UserId';
 
 export class UserDoesNotExistError extends Error {
   constructor(id: UserId) {

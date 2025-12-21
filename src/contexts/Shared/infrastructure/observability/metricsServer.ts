@@ -1,4 +1,4 @@
-import { getMetrics, metricsContentType } from './metrics';
+import { getMetrics, metricsContentType } from '@/contexts/Shared/infrastructure/observability/metrics';
 
 export const startMetricsServer = (port: number): void => {
   Bun.serve({

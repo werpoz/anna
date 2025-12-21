@@ -1,5 +1,5 @@
-import { EnumValueObject } from '../value-object/EnumValueObject';
-import { InvalidArgumentError } from '../value-object/InvalidArgumentError';
+import { EnumValueObject } from '@/contexts/Shared/domain/value-object/EnumValueObject';
+import { InvalidArgumentError } from '@/contexts/Shared/domain/value-object/InvalidArgumentError';
 
 export enum Operator {
   EQUAL = '=',

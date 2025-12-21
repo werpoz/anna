@@ -1,13 +1,13 @@
-import type { CommandHandler } from '../../../Shared/domain/CommandHandler';
-import type { EventBus } from '../../../Shared/domain/EventBus';
+import type { CommandHandler } from '@/contexts/Shared/domain/CommandHandler';
+import type { EventBus } from '@/contexts/Shared/domain/EventBus';
 import { inject, injectable } from 'tsyringe';
-import { TOKENS } from '../../../Shared/infrastructure/di/tokens';
-import { User } from '../../domain/User';
-import { UserEmail } from '../../domain/UserEmail';
-import { UserId } from '../../domain/UserId';
-import { UserName } from '../../domain/UserName';
-import type { UserRepository } from '../../domain/UserRepository';
-import { CreateUserCommand } from './CreateUserCommand';
+import { TOKENS } from '@/contexts/Shared/infrastructure/di/tokens';
+import { User } from '@/contexts/User/domain/User';
+import { UserEmail } from '@/contexts/User/domain/UserEmail';
+import { UserId } from '@/contexts/User/domain/UserId';
+import { UserName } from '@/contexts/User/domain/UserName';
+import type { UserRepository } from '@/contexts/User/domain/UserRepository';
+import { CreateUserCommand } from '@/contexts/User/application/Create/CreateUserCommand';
 
 @injectable()
 export class CreateUserCommandHandler implements CommandHandler<CreateUserCommand> {

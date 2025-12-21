@@ -1,5 +1,5 @@
-import { OrderBy } from './OrderBy';
-import { OrderType, OrderTypes } from './OrderType';
+import { OrderBy } from '@/contexts/Shared/domain/criteria/OrderBy';
+import { OrderType, OrderTypes } from '@/contexts/Shared/domain/criteria/OrderType';
 
 export class Order {
   readonly orderBy: OrderBy;

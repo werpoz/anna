@@ -1,4 +1,4 @@
-import { Query } from './Query';
+import { Query } from '@/contexts/Shared/domain/Query';
 
 export class QueryNotRegisteredError extends Error {
   constructor(query: Query) {

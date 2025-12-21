@@ -1,4 +1,4 @@
-import { Command } from './Command';
+import { Command } from '@/contexts/Shared/domain/Command';
 
 export interface CommandHandler<T extends Command> {
   subscribedTo(): Command;

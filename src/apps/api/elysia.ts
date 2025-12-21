@@ -1,12 +1,12 @@
 import { Elysia } from 'elysia';
-import { buildAppContext } from '../contexts/Shared/infrastructure/di/bootstrap';
-import { CreateUserCommand } from '../contexts/User/application/Create/CreateUserCommand';
-import { FindUserQuery } from '../contexts/User/application/Find/FindUserQuery';
-import type { UserResponse } from '../contexts/User/application/Find/UserResponse';
-import { UserDoesNotExistError } from '../contexts/User/domain/UserDoesNotExistError';
-import { getMetrics, metricsContentType } from '../contexts/Shared/infrastructure/observability/metrics';
-import { initTelemetry } from '../contexts/Shared/infrastructure/observability/telemetry';
-import { env } from '../contexts/Shared/infrastructure/config/env';
+import { buildAppContext } from '@/contexts/Shared/infrastructure/di/bootstrap';
+import { CreateUserCommand } from '@/contexts/User/application/Create/CreateUserCommand';
+import { FindUserQuery } from '@/contexts/User/application/Find/FindUserQuery';
+import type { UserResponse } from '@/contexts/User/application/Find/UserResponse';
+import { UserDoesNotExistError } from '@/contexts/User/domain/UserDoesNotExistError';
+import { getMetrics, metricsContentType } from '@/contexts/Shared/infrastructure/observability/metrics';
+import { initTelemetry } from '@/contexts/Shared/infrastructure/observability/telemetry';
+import { env } from '@/contexts/Shared/infrastructure/config/env';
 
 initTelemetry(`${env.otelServiceName}-elysia`);
 

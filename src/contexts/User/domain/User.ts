@@ -1,8 +1,8 @@
-import { AggregateRoot } from '../../Shared/domain/AggregateRoot';
-import { UserCreatedDomainEvent } from './UserCreatedDomainEvent';
-import { UserEmail } from './UserEmail';
-import { UserId } from './UserId';
-import { UserName } from './UserName';
+import { AggregateRoot } from '@/contexts/Shared/domain/AggregateRoot';
+import { UserCreatedDomainEvent } from '@/contexts/User/domain/UserCreatedDomainEvent';
+import { UserEmail } from '@/contexts/User/domain/UserEmail';
+import { UserId } from '@/contexts/User/domain/UserId';
+import { UserName } from '@/contexts/User/domain/UserName';
 
 export type UserPrimitives = {
   id: string;

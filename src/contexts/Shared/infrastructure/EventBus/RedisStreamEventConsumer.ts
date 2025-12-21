@@ -1,10 +1,10 @@
 import type Redis from 'ioredis';
-import type { DomainEvent, DomainEventClass } from '../../domain/DomainEvent';
-import type { DomainEventSubscriber } from '../../domain/DomainEventSubscriber';
-import { DomainEventSubscribers } from './DomainEventSubscribers';
-import type { DeadLetterRepository } from '../DeadLetter/DeadLetterRepository';
-import { metrics } from '../observability/metrics';
-import { logger } from '../observability/logger';
+import type { DomainEvent, DomainEventClass } from '@/contexts/Shared/domain/DomainEvent';
+import type { DomainEventSubscriber } from '@/contexts/Shared/domain/DomainEventSubscriber';
+import { DomainEventSubscribers } from '@/contexts/Shared/infrastructure/EventBus/DomainEventSubscribers';
+import type { DeadLetterRepository } from '@/contexts/Shared/infrastructure/DeadLetter/DeadLetterRepository';
+import { metrics } from '@/contexts/Shared/infrastructure/observability/metrics';
+import { logger } from '@/contexts/Shared/infrastructure/observability/logger';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 
 type ConsumerOptions = {

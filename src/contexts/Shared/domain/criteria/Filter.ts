@@ -1,7 +1,7 @@
-import { InvalidArgumentError } from '../value-object/InvalidArgumentError';
-import { FilterField } from './FilterField';
-import { FilterOperator } from './FilterOperator';
-import { FilterValue } from './FilterValue';
+import { InvalidArgumentError } from '@/contexts/Shared/domain/value-object/InvalidArgumentError';
+import { FilterField } from '@/contexts/Shared/domain/criteria/FilterField';
+import { FilterOperator } from '@/contexts/Shared/domain/criteria/FilterOperator';
+import { FilterValue } from '@/contexts/Shared/domain/criteria/FilterValue';
 
 export class Filter {
   readonly field: FilterField;

@@ -1,5 +1,5 @@
-import { InvalidArgumentError } from './InvalidArgumentError';
-import { ValueObject } from './ValueObject';
+import { InvalidArgumentError } from '@/contexts/Shared/domain/value-object/InvalidArgumentError';
+import { ValueObject } from '@/contexts/Shared/domain/value-object/ValueObject';
 
 export class Uuid extends ValueObject<string> {
   constructor(value: string) {

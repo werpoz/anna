@@ -1,4 +1,4 @@
-import type { OutboxMessage } from './OutboxMessage';
+import type { OutboxMessage } from '@/contexts/Shared/infrastructure/Outbox/OutboxMessage';
 
 export interface OutboxRepository {
   add(message: OutboxMessage): Promise<void>;

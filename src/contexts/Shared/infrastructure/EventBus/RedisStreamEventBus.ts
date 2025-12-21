@@ -1,9 +1,9 @@
-import type { EventBus } from '../../domain/EventBus';
-import type { DomainEvent } from '../../domain/DomainEvent';
-import type { DomainEventSubscribers } from './DomainEventSubscribers';
-import type { OutboxRepository } from '../Outbox/OutboxRepository';
-import { outboxMessageFromDomainEvent } from '../Outbox/OutboxMessage';
-import type { RedisStreamPublisher } from './RedisStreamPublisher';
+import type { EventBus } from '@/contexts/Shared/domain/EventBus';
+import type { DomainEvent } from '@/contexts/Shared/domain/DomainEvent';
+import type { DomainEventSubscribers } from '@/contexts/Shared/infrastructure/EventBus/DomainEventSubscribers';
+import type { OutboxRepository } from '@/contexts/Shared/infrastructure/Outbox/OutboxRepository';
+import { outboxMessageFromDomainEvent } from '@/contexts/Shared/infrastructure/Outbox/OutboxMessage';
+import type { RedisStreamPublisher } from '@/contexts/Shared/infrastructure/EventBus/RedisStreamPublisher';
 
 export class RedisStreamEventBus implements EventBus {
   private readonly outboxRepository: OutboxRepository;

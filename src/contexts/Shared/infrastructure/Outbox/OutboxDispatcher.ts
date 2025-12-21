@@ -1,7 +1,7 @@
-import type { OutboxRepository } from './OutboxRepository';
-import type { RedisStreamPublisher } from '../EventBus/RedisStreamPublisher';
-import { metrics } from '../observability/metrics';
-import { logger } from '../observability/logger';
+import type { OutboxRepository } from '@/contexts/Shared/infrastructure/Outbox/OutboxRepository';
+import type { RedisStreamPublisher } from '@/contexts/Shared/infrastructure/EventBus/RedisStreamPublisher';
+import { metrics } from '@/contexts/Shared/infrastructure/observability/metrics';
+import { logger } from '@/contexts/Shared/infrastructure/observability/logger';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 
 type DispatcherOptions = {

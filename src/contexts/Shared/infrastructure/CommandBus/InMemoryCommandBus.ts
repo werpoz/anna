@@ -1,7 +1,7 @@
-import type { CommandBus } from '../../domain/CommandBus';
-import { Command } from '../../domain/Command';
-import type { CommandHandler } from '../../domain/CommandHandler';
-import { CommandNotRegisteredError } from '../../domain/CommandNotRegisteredError';
+import type { CommandBus } from '@/contexts/Shared/domain/CommandBus';
+import { Command } from '@/contexts/Shared/domain/Command';
+import type { CommandHandler } from '@/contexts/Shared/domain/CommandHandler';
+import { CommandNotRegisteredError } from '@/contexts/Shared/domain/CommandNotRegisteredError';
 
 export class InMemoryCommandBus implements CommandBus {
   private readonly handlers: Map<string, CommandHandler<Command>>;

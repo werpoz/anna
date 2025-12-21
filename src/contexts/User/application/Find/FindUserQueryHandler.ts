@@ -1,11 +1,11 @@
-import type { QueryHandler } from '../../../Shared/domain/QueryHandler';
+import type { QueryHandler } from '@/contexts/Shared/domain/QueryHandler';
 import { inject, injectable } from 'tsyringe';
-import { TOKENS } from '../../../Shared/infrastructure/di/tokens';
-import { UserDoesNotExistError } from '../../domain/UserDoesNotExistError';
-import { UserId } from '../../domain/UserId';
-import type { UserRepository } from '../../domain/UserRepository';
-import { FindUserQuery } from './FindUserQuery';
-import { UserResponse } from './UserResponse';
+import { TOKENS } from '@/contexts/Shared/infrastructure/di/tokens';
+import { UserDoesNotExistError } from '@/contexts/User/domain/UserDoesNotExistError';
+import { UserId } from '@/contexts/User/domain/UserId';
+import type { UserRepository } from '@/contexts/User/domain/UserRepository';
+import { FindUserQuery } from '@/contexts/User/application/Find/FindUserQuery';
+import { UserResponse } from '@/contexts/User/application/Find/UserResponse';
 
 @injectable()
 export class FindUserQueryHandler implements QueryHandler<FindUserQuery, UserResponse> {

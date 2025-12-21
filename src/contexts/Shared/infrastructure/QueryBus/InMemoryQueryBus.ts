@@ -1,8 +1,8 @@
-import type { QueryBus } from '../../domain/QueryBus';
-import { Query } from '../../domain/Query';
-import type { Response } from '../../domain/Response';
-import type { QueryHandler } from '../../domain/QueryHandler';
-import { QueryNotRegisteredError } from '../../domain/QueryNotRegisteredError';
+import type { QueryBus } from '@/contexts/Shared/domain/QueryBus';
+import { Query } from '@/contexts/Shared/domain/Query';
+import type { Response } from '@/contexts/Shared/domain/Response';
+import type { QueryHandler } from '@/contexts/Shared/domain/QueryHandler';
+import { QueryNotRegisteredError } from '@/contexts/Shared/domain/QueryNotRegisteredError';
 
 export class InMemoryQueryBus implements QueryBus {
   private readonly handlers: Map<string, QueryHandler<Query, Response>>;

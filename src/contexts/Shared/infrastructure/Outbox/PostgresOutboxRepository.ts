@@ -1,6 +1,6 @@
 import type { Pool } from 'pg';
-import type { OutboxMessage } from './OutboxMessage';
-import type { OutboxRepository } from './OutboxRepository';
+import type { OutboxMessage } from '@/contexts/Shared/infrastructure/Outbox/OutboxMessage';
+import type { OutboxRepository } from '@/contexts/Shared/infrastructure/Outbox/OutboxRepository';
 
 type OutboxRow = {
   id: string;

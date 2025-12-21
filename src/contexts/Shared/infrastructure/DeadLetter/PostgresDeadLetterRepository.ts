@@ -1,6 +1,6 @@
 import type { Pool } from 'pg';
-import type { DeadLetterMessage } from './DeadLetterMessage';
-import type { DeadLetterRepository } from './DeadLetterRepository';
+import type { DeadLetterMessage } from '@/contexts/Shared/infrastructure/DeadLetter/DeadLetterMessage';
+import type { DeadLetterRepository } from '@/contexts/Shared/infrastructure/DeadLetter/DeadLetterRepository';
 
 export class PostgresDeadLetterRepository implements DeadLetterRepository {
   private readonly pool: Pool;

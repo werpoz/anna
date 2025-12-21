@@ -1,8 +1,8 @@
 import { container } from 'tsyringe';
-import { TOKENS } from '../../../Shared/infrastructure/di/tokens';
-import { CreateUserCommandHandler } from '../../application/Create/CreateUserCommandHandler';
-import { FindUserQueryHandler } from '../../application/Find/FindUserQueryHandler';
-import { LogUserCreatedOnUserCreated } from '../LogUserCreatedOnUserCreated';
+import { TOKENS } from '@/contexts/Shared/infrastructure/di/tokens';
+import { CreateUserCommandHandler } from '@/contexts/User/application/Create/CreateUserCommandHandler';
+import { FindUserQueryHandler } from '@/contexts/User/application/Find/FindUserQueryHandler';
+import { LogUserCreatedOnUserCreated } from '@/contexts/User/infrastructure/LogUserCreatedOnUserCreated';
 
 container.register(TOKENS.CommandHandlers, { useClass: CreateUserCommandHandler });
 container.register(TOKENS.QueryHandlers, { useClass: FindUserQueryHandler });

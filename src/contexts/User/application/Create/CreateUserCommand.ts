@@ -1,4 +1,4 @@
-import { Command } from '../../../Shared/domain/Command';
+import { Command } from '@/contexts/Shared/domain/Command';
 
 export class CreateUserCommand extends Command {
   readonly id: string;

@@ -1,5 +1,5 @@
-import type Logger from '../../domain/Logger';
-import { logger } from '../observability/logger';
+import type Logger from '@/contexts/Shared/domain/Logger';
+import { logger } from '@/contexts/Shared/infrastructure/observability/logger';
 import { injectable } from 'tsyringe';
 
 @injectable()

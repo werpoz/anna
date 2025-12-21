@@ -1,4 +1,4 @@
-import { InvalidArgumentError } from './InvalidArgumentError';
+import { InvalidArgumentError } from '@/contexts/Shared/domain/value-object/InvalidArgumentError';
 
 export type Primitives = String | string | number | Boolean | boolean | Date;
 

@@ -3,9 +3,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "app:elysia": "bun run src/apps/elysia.ts",
-    "worker:outbox": "bun run src/apps/outbox-dispatcher.ts",
-    "worker:events": "bun run src/apps/event-consumer.ts"
+    "app:elysia": "bun run src/apps/api/elysia.ts",
+    "worker:outbox": "bun run src/apps/workers/outbox-dispatcher.ts",
+    "worker:events": "bun run src/apps/workers/event-consumer.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"

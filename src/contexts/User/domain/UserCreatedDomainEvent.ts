@@ -1,4 +1,4 @@
-import { DomainEvent } from '../../Shared/domain/DomainEvent';
+import { DomainEvent } from '@/contexts/Shared/domain/DomainEvent';
 
 export class UserCreatedDomainEvent extends DomainEvent {
   static override EVENT_NAME = 'user.created';
