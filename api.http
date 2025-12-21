@@ -1,5 +1,5 @@
 ### Elysia - create user
-POST http://localhost:3001/users
+POST http://localhost:3000/users
 Content-Type: application/json
 
 {

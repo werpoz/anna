@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "app:elysia": "bun run src/apps/elysia.ts",
-    "app:hono": "bun run src/apps/hono.ts"
+    "app:hono": "bun run src/apps/hono.ts",
+    "worker:outbox": "bun run src/apps/outbox-dispatcher.ts",
+    "worker:events": "bun run src/apps/event-consumer.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -13,8 +15,11 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@types/pg": "^8.16.0",
     "elysia": "^1.3.3",
     "hono": "^4.5.0",
+    "ioredis": "^5.4.1",
+    "pg": "^8.11.5",
     "reflect-metadata": "^0.2.2",
     "tsyringe": "^4.10.0"
   }

@@ -6,15 +6,17 @@ import { InMemoryQueryBus } from '../QueryBus/InMemoryQueryBus';
 import { TOKENS } from './tokens';
 import { ConsoleLogger } from '../Logger/ConsoleLogger';
 import { InMemoryUserRepository } from '../../../User/infrastructure/InMemoryUserRepository';
-import type { DomainEventSubscriber } from '../../domain/DomainEventSubscriber';
-import type { DomainEvent } from '../../domain/DomainEvent';
-import { DomainEventSubscribers } from '../EventBus/DomainEventSubscribers';
-import { InMemoryEventBus } from '../EventBus/InMemoryEventBus';
 import type { CommandHandler } from '../../domain/CommandHandler';
 import type { Command } from '../../domain/Command';
 import type { QueryHandler } from '../../domain/QueryHandler';
 import type { Query } from '../../domain/Query';
 import type { Response } from '../../domain/Response';
+import { RedisStreamEventBus } from '../EventBus/RedisStreamEventBus';
+import { PostgresOutboxRepository } from '../Outbox/PostgresOutboxRepository';
+import { RedisStreamPublisher } from '../EventBus/RedisStreamPublisher';
+import { env } from '../config/env';
+import { Pool } from 'pg';
+import Redis from 'ioredis';
 
 export type AppContext = {
   commandBus: InMemoryCommandBus;
@@ -31,11 +33,11 @@ export const buildAppContext = (): AppContext => {
   }
 
   if (!container.isRegistered(TOKENS.EventBus)) {
-    const resolvedSubscribers = container.resolveAll(
-      TOKENS.DomainEventSubscribers
-    ) as Array<DomainEventSubscriber<DomainEvent>>;
-    const subscribers = DomainEventSubscribers.from(resolvedSubscribers);
-    const eventBus = new InMemoryEventBus(subscribers);
+    const pool = new Pool({ connectionString: env.databaseUrl });
+    const redis = new Redis(env.redisUrl);
+    const outboxRepository = new PostgresOutboxRepository(pool);
+    const publisher = new RedisStreamPublisher(redis, env.eventsStream);
+    const eventBus = new RedisStreamEventBus(outboxRepository, publisher);
     container.registerInstance(TOKENS.EventBus, eventBus);
   }
 
