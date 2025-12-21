@@ -17,6 +17,11 @@ bun install
 docker compose up -d
 ```
 
+Dashboard (Prometheus + Grafana):
+- Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3005` (admin/admin)
+  - Importa `grafana/dashboard.json` para un panel listo.
+
 Defaults (puedes sobrescribir con variables de entorno):
 - `DATABASE_URL=postgres://anna:anna@localhost:5432/anna`
 - `REDIS_URL=redis://localhost:6379`
@@ -54,6 +59,10 @@ Terminal 2:
 ```bash
 bun run worker:events
 ```
+
+Para métricas de workers:
+- `METRICS_PORT=9102 bun run worker:outbox`
+- `METRICS_PORT=9101 bun run worker:events`
 
 ## API (Elysia)
 ```bash
