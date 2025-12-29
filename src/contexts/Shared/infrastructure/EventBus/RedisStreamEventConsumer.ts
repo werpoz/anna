@@ -168,7 +168,7 @@ export class RedisStreamEventConsumer {
       const exception = error instanceof Error ? error : new Error(String(error));
       span.recordException(exception);
       span.setStatus({ code: SpanStatusCode.ERROR, message: exception.message });
-      logger.error(`Event processing failed: ${eventName} ${eventId}`);
+      logger.error({ err: exception }, `Event processing failed: ${eventName} ${eventId}`);
       await this.handleFailure(entryId, event, error);
     } finally {
       span.end();

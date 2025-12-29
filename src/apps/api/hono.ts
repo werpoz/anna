@@ -5,12 +5,13 @@ import { registerMetricsRoutes } from '@/apps/api/controllers/metrics';
 import { registerAuthRoutes } from '@/apps/api/controllers/auth';
 import { initTelemetry } from '@/contexts/Shared/infrastructure/observability/telemetry';
 import { env } from '@/contexts/Shared/infrastructure/config/env';
+import type { AppEnv } from '@/apps/api/types';
 
 initTelemetry(`${env.otelServiceName}-hono`);
 
 const { commandBus, queryBus, authService } = buildAppContext();
 
-const app = new Hono();
+const app = new Hono<AppEnv>();
 
 registerUserRoutes(app, { commandBus, queryBus, authService });
 registerAuthRoutes(app, { authService });

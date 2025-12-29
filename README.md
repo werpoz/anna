@@ -132,6 +132,36 @@ curl -X POST http://localhost:3000/auth/password-reset/confirm \
   -d '{"email":"ada@example.com","token":"<token>","newPassword":"NewPassword123!"}'
 ```
 
+## Flujo de login (registro -> verificacion -> acceso)
+1) Registrar usuario:
+```bash
+curl -X POST http://localhost:3000/users \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Ada Lovelace","email":"ada@example.com","password":"SuperSecure123!"}'
+```
+
+2) Verificar cuenta (codigo o token):
+- El codigo se imprime en consola del worker: `[UserVerificationCode]`.
+- El token viene en el link que se arma en el email.
+```bash
+curl -X POST http://localhost:3000/users/<user_id>/verify \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"<verification_code>"}'
+```
+
+3) Login (devuelve access token y setea refresh cookie):
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"ada@example.com","password":"SuperSecure123!"}'
+```
+
+4) Consumir API con access token:
+```bash
+curl http://localhost:3000/users/me \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
 ## Observabilidad
 - Logs estructurados con `pino`.
 - Métricas Prometheus en `/metrics` (API) y en workers si defines `METRICS_PORT`.

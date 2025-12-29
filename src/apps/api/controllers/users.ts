@@ -13,7 +13,8 @@ import { UserVerificationTokenExpiredError } from '@/contexts/Core/User/domain/e
 import { UserVerificationNotPendingError } from '@/contexts/Core/User/domain/errors/UserVerificationNotPendingError';
 import { UserNotActiveError } from '@/contexts/Core/User/domain/errors/UserNotActiveError';
 import { InvalidArgumentError } from '@/contexts/Shared/domain/value-object/InvalidArgumentError';
-import { requireAuth, type AuthPayload } from '@/apps/api/middleware/requireAuth';
+import { requireAuth } from '@/apps/api/middleware/requireAuth';
+import type { AppEnv } from '@/apps/api/types';
 import { buildRefreshCookie } from '@/apps/api/controllers/authCookies';
 
 type UserControllerDeps = {
@@ -30,7 +31,7 @@ const parseJsonBody = async <T>(request: Request): Promise<T | null> => {
   }
 };
 
-export const registerUserRoutes = (app: Hono, deps: UserControllerDeps): void => {
+export const registerUserRoutes = (app: Hono<AppEnv>, deps: UserControllerDeps): void => {
   app.post('/users', async (c) => {
     const payload = await parseJsonBody<{ id?: string; name?: string; email?: string; password?: string }>(
       c.req.raw
@@ -117,7 +118,7 @@ export const registerUserRoutes = (app: Hono, deps: UserControllerDeps): void =>
   });
 
   app.get('/users/me', requireAuth, async (c) => {
-    const auth = c.get('auth') as AuthPayload | undefined;
+    const auth = c.get('auth');
     if (!auth) {
       return c.json({ message: 'missing access token' }, 401);
     }

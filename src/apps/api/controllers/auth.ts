@@ -10,12 +10,13 @@ import { UserPasswordResetTokenDoesNotMatchError } from '@/contexts/Core/User/do
 import { UserPasswordResetTokenExpiredError } from '@/contexts/Core/User/domain/errors/UserPasswordResetTokenExpiredError';
 import { env } from '@/contexts/Shared/infrastructure/config/env';
 import { buildRefreshCookie, clearRefreshCookie } from '@/apps/api/controllers/authCookies';
+import type { AppEnv } from '@/apps/api/types';
 
 type AuthControllerDeps = {
   authService: AuthService;
 };
 
-type AuthPayload = {
+type LoginPayload = {
   email?: string;
   password?: string;
 };
@@ -49,9 +50,9 @@ const parseJsonBody = async <T>(request: Request): Promise<T | null> => {
   }
 };
 
-export const registerAuthRoutes = (app: Hono, deps: AuthControllerDeps): void => {
+export const registerAuthRoutes = (app: Hono<AppEnv>, deps: AuthControllerDeps): void => {
   app.post('/auth/login', async (c) => {
-    const payload = await parseJsonBody<AuthPayload>(c.req.raw);
+    const payload = await parseJsonBody<LoginPayload>(c.req.raw);
 
     if (!payload?.email || !payload?.password) {
       return c.json({ message: 'email and password are required' }, 400);

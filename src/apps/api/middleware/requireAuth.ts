@@ -1,11 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
 import { jwtVerify } from 'jose';
 import { env } from '@/contexts/Shared/infrastructure/config/env';
-
-export type AuthPayload = {
-  userId: string;
-  email?: string;
-};
+import type { AppEnv } from '@/apps/api/types';
 
 const getToken = (authorization: string | undefined): string | null => {
   if (!authorization) {
@@ -15,7 +11,7 @@ const getToken = (authorization: string | undefined): string | null => {
   return token || null;
 };
 
-export const requireAuth: MiddlewareHandler = async (c, next) => {
+export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
   const token = getToken(c.req.header('authorization'));
   if (!token) {
     return c.json({ message: 'missing access token' }, 401);
