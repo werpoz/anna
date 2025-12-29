@@ -1,5 +1,7 @@
 # anna
 
+Proyecto base para un SaaS orientado a sesiones de WhatsApp. Provee una API simple con Hono, workers para outbox y consumo de eventos, y una arquitectura con eventos de dominio sobre Redis Streams + Postgres. El objetivo es ofrecer una base confiable para manejo de sesiones, mensajería y observabilidad, dejando listo el camino para crecer hacia planes/suscripciones, métricas y backoffice.
+
 ## Requisitos
 - Bun v1.3.x
 - Docker (para Dragonfly y Postgres)
@@ -28,6 +30,12 @@ Defaults (puedes sobrescribir con variables de entorno):
 - `LOG_LEVEL=info`
 - `OTEL_SERVICE_NAME=anna`
 - `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces`
+- `AUTH_JWT_SECRET=dev-secret-change-me`
+- `AUTH_ACCESS_TOKEN_TTL_MS=900000`
+- `AUTH_REFRESH_TOKEN_TTL_MS=2592000000`
+- `AUTH_REFRESH_COOKIE_NAME=refresh_token`
+- `AUTH_COOKIE_SECURE=false`
+- `AUTH_PASSWORD_RESET_TTL_MS=3600000`
 - `METRICS_PORT=9100`
 - `EVENTS_STREAM=domain-events`
 - `EVENTS_DLQ_STREAM=domain-events-dlq`
@@ -64,9 +72,9 @@ Para métricas de workers:
 - `METRICS_PORT=9102 bun run worker:outbox`
 - `METRICS_PORT=9101 bun run worker:events`
 
-## API (Elysia)
+## API (Hono)
 ```bash
-bun run app:elysia
+bun run app:hono
 ```
 
 ## Probar endpoints
@@ -76,19 +84,63 @@ Usa el archivo `api.http` en tu IDE o con `curl`:
 ```bash
 curl -X POST http://localhost:3000/users \
   -H 'Content-Type: application/json' \
-  -d '{"name":"Ada Lovelace","email":"ada@example.com"}'
+  -d '{"name":"Ada Lovelace","email":"ada@example.com","password":"SuperSecure123!"}'
 ```
 
 Luego consulta:
 
 ```bash
-curl http://localhost:3000/users/<id>
+curl http://localhost:3000/users/me \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
+Login (devuelve access token y setea refresh token en cookie):
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"ada@example.com","password":"SuperSecure123!"}'
+```
+
+Refresh (usa la cookie refresh token):
+```bash
+curl -X POST http://localhost:3000/auth/refresh
+```
+
+Logout (revoca refresh token):
+```bash
+curl -X POST http://localhost:3000/auth/logout
+```
+
+Reenviar verificacion:
+```bash
+curl -X POST http://localhost:3000/auth/resend-verification \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"ada@example.com"}'
+```
+
+Solicitar reset de password:
+```bash
+curl -X POST http://localhost:3000/auth/password-reset \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"ada@example.com"}'
+```
+
+Confirmar reset de password:
+```bash
+curl -X POST http://localhost:3000/auth/password-reset/confirm \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"ada@example.com","token":"<token>","newPassword":"NewPassword123!"}'
 ```
 
 ## Observabilidad
 - Logs estructurados con `pino`.
 - Métricas Prometheus en `/metrics` (API) y en workers si defines `METRICS_PORT`.
 - Tracing con OpenTelemetry (OTLP HTTP) si defines `OTEL_EXPORTER_OTLP_ENDPOINT`.
+
+## Validaciones de dominio
+- `UserEmail` valida formato de email.
+- `UserName` valida que no sea vacio (trim).
+- `UserId` valida UUID (via `Uuid`).
 
 ## Session Worker (propuesta)
 - Proceso separado que consume comandos de sesiones y mantiene sockets de Baileys.
@@ -118,6 +170,8 @@ curl http://localhost:3000/users/<id>
 - Testing: unitarios para dominio + integración para outbox/streams.
 - Migraciones: herramienta formal (Prisma/Knex/Flyway) y versionado.
 - Seguridad: autenticación, autorización, rate limiting, secrets.
+- Persistencia real de usuarios: hoy es `InMemoryUserRepository`.
+- Manejo de errores de dominio en la API (respuestas 4xx claras).
 - Idempotencia end‑to‑end: contratos claros y dedupe en comandos.
 - Configuración por entorno: `.env`, validación y secrets management.
 - CI/CD: lint, tests, build y despliegue automático.

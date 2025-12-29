@@ -1,11 +1,65 @@
-### Elysia - create user
+### Hono - create user
 POST http://localhost:3000/users
 Content-Type: application/json
 
 {
-  "name": "Ada Lovelace",
+  "name": "Abel Jean Pool",
+  "email": "e3corpion@gmail.com",
+  "password": "SuperSecure123!"
+}
+
+### Hono - verify user (pending_verification)
+# Tip: el codigo aparece en consola del worker como [UserVerificationCode]
+# Alternativa: usa "token": "<verification_token>" si vienes desde un link.
+# Respuesta: access token + refresh cookie (Set-Cookie).
+POST http://localhost:3000/users/<user_id>/verify
+Content-Type: application/json
+
+{
+  "code": "<verification_code>"
+}
+
+### Hono - get user (me)
+GET http://localhost:3000/users/me
+Authorization: Bearer <access_token>
+
+### Hono - login
+POST http://localhost:3000/auth/login
+Content-Type: application/json
+
+{
+  "email": "ada@example.com",
+  "password": "SuperSecure123!"
+}
+
+### Hono - refresh (requires refresh cookie from login)
+POST http://localhost:3000/auth/refresh
+
+### Hono - logout (clears refresh cookie)
+POST http://localhost:3000/auth/logout
+
+### Hono - resend verification
+POST http://localhost:3000/auth/resend-verification
+Content-Type: application/json
+
+{
   "email": "ada@example.com"
 }
 
-### Elysia - get user (replace :id with the response id)
-GET http://localhost:3000/users/:id
+### Hono - request password reset
+POST http://localhost:3000/auth/password-reset
+Content-Type: application/json
+
+{
+  "email": "ada@example.com"
+}
+
+### Hono - confirm password reset
+POST http://localhost:3000/auth/password-reset/confirm
+Content-Type: application/json
+
+{
+  "email": "ada@example.com",
+  "token": "<token>",
+  "newPassword": "NewPassword123!"
+}

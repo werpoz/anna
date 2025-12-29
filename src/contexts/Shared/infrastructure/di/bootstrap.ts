@@ -1,11 +1,13 @@
 import 'reflect-metadata';
 import { container } from 'tsyringe';
-import '@/contexts/User/infrastructure/di/registerUserHandlers';
+import '@/contexts/Core/User/infrastructure/di/registerUserHandlers';
 import { InMemoryCommandBus } from '@/contexts/Shared/infrastructure/CommandBus/InMemoryCommandBus';
 import { InMemoryQueryBus } from '@/contexts/Shared/infrastructure/QueryBus/InMemoryQueryBus';
 import { TOKENS } from '@/contexts/Shared/infrastructure/di/tokens';
 import { PinoLogger } from '@/contexts/Shared/infrastructure/Logger/PinoLogger';
-import { InMemoryUserRepository } from '@/contexts/User/infrastructure/InMemoryUserRepository';
+import { ResendEmailSender } from '@/contexts/Shared/infrastructure/EmailSender/ResendEmailSender';
+import { InMemoryUserRepository } from '@/contexts/Core/User/infrastructure/InMemoryUserRepository';
+import { InMemoryRefreshTokenRepository } from '@/contexts/Core/Auth/infrastructure/InMemoryRefreshTokenRepository';
 import type { CommandHandler } from '@/contexts/Shared/domain/CommandHandler';
 import type { Command } from '@/contexts/Shared/domain/Command';
 import type { QueryHandler } from '@/contexts/Shared/domain/QueryHandler';
@@ -17,10 +19,12 @@ import { RedisStreamPublisher } from '@/contexts/Shared/infrastructure/EventBus/
 import { env } from '@/contexts/Shared/infrastructure/config/env';
 import { Pool } from 'pg';
 import Redis from 'ioredis';
+import { AuthService } from '@/contexts/Core/Auth/application/AuthService';
 
 export type AppContext = {
   commandBus: InMemoryCommandBus;
   queryBus: InMemoryQueryBus;
+  authService: AuthService;
 };
 
 export const buildAppContext = (): AppContext => {
@@ -28,8 +32,16 @@ export const buildAppContext = (): AppContext => {
     container.registerSingleton(TOKENS.Logger, PinoLogger);
   }
 
+  if (!container.isRegistered(TOKENS.EmailSender)) {
+    container.registerSingleton(TOKENS.EmailSender, ResendEmailSender);
+  }
+
   if (!container.isRegistered(TOKENS.UserRepository)) {
     container.registerSingleton(TOKENS.UserRepository, InMemoryUserRepository);
+  }
+
+  if (!container.isRegistered(TOKENS.RefreshTokenRepository)) {
+    container.registerSingleton(TOKENS.RefreshTokenRepository, InMemoryRefreshTokenRepository);
   }
 
   if (!container.isRegistered(TOKENS.EventBus)) {
@@ -46,6 +58,11 @@ export const buildAppContext = (): AppContext => {
 
   const commandBus = new InMemoryCommandBus(commandHandlers);
   const queryBus = new InMemoryQueryBus(queryHandlers);
+  const authService = new AuthService(
+    container.resolve(TOKENS.UserRepository),
+    container.resolve(TOKENS.RefreshTokenRepository),
+    container.resolve(TOKENS.EventBus)
+  );
 
-  return { commandBus, queryBus };
+  return { commandBus, queryBus, authService };
 };

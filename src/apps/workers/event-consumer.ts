@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 import { container } from 'tsyringe';
 import { env } from '@/contexts/Shared/infrastructure/config/env';
 import { PinoLogger } from '@/contexts/Shared/infrastructure/Logger/PinoLogger';
+import { ResendEmailSender } from '@/contexts/Shared/infrastructure/EmailSender/ResendEmailSender';
 import { TOKENS } from '@/contexts/Shared/infrastructure/di/tokens';
 import { DomainEventSubscribers } from '@/contexts/Shared/infrastructure/EventBus/DomainEventSubscribers';
 import { RedisStreamEventConsumer } from '@/contexts/Shared/infrastructure/EventBus/RedisStreamEventConsumer';
@@ -13,10 +14,14 @@ import { logger } from '@/contexts/Shared/infrastructure/observability/logger';
 import { startMetricsServer } from '@/contexts/Shared/infrastructure/observability/metricsServer';
 import type { DomainEventSubscriber } from '@/contexts/Shared/domain/DomainEventSubscriber';
 import type { DomainEvent } from '@/contexts/Shared/domain/DomainEvent';
-import '@/contexts/User/infrastructure/di/registerUserHandlers';
+import '@/contexts/Core/User/infrastructure/di/registerUserHandlers';
 
 if (!container.isRegistered(TOKENS.Logger)) {
   container.registerSingleton(TOKENS.Logger, PinoLogger);
+}
+
+if (!container.isRegistered(TOKENS.EmailSender)) {
+  container.registerSingleton(TOKENS.EmailSender, ResendEmailSender);
 }
 
 const subscribers = DomainEventSubscribers.from(

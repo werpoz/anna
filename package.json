@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "app:elysia": "bun run src/apps/api/elysia.ts",
+    "app:hono": "bun run src/apps/api/hono.ts",
     "worker:outbox": "bun run src/apps/workers/outbox-dispatcher.ts",
     "worker:events": "bun run src/apps/workers/event-consumer.ts"
   },
@@ -21,12 +21,14 @@
     "@opentelemetry/sdk-trace-node": "^1.28.0",
     "@opentelemetry/semantic-conventions": "^1.28.0",
     "@types/pg": "^8.16.0",
-    "elysia": "^1.3.3",
+    "hono": "^4.6.5",
     "ioredis": "^5.4.1",
-    "pino": "^9.3.2",
+    "jose": "^5.3.0",
     "pg": "^8.11.5",
+    "pino": "^9.3.2",
     "prom-client": "^15.1.0",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.6.0",
     "tsyringe": "^4.10.0"
   }
 }
