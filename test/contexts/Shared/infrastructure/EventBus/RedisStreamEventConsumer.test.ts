@@ -1,0 +1,255 @@
+import { describe, it, expect } from 'bun:test';
+import { RedisStreamEventConsumer } from '@/contexts/Shared/infrastructure/EventBus/RedisStreamEventConsumer';
+import { DomainEvent } from '@/contexts/Shared/domain/DomainEvent';
+import { DomainEventSubscribers } from '@/contexts/Shared/infrastructure/EventBus/DomainEventSubscribers';
+import type { DomainEventSubscriber } from '@/contexts/Shared/domain/DomainEventSubscriber';
+import type { DeadLetterRepository } from '@/contexts/Shared/infrastructure/DeadLetter/DeadLetterRepository';
+import type { DeadLetterMessage } from '@/contexts/Shared/infrastructure/DeadLetter/DeadLetterMessage';
+
+class TestEvent extends DomainEvent {
+  static override EVENT_NAME = 'test.event';
+
+  constructor(props?: { eventId?: string; aggregateId?: string; occurredOn?: Date }) {
+    super({
+      eventName: TestEvent.EVENT_NAME,
+      aggregateId: props?.aggregateId ?? 'agg-1',
+      eventId: props?.eventId,
+      occurredOn: props?.occurredOn ?? new Date('2024-01-01T00:00:00.000Z'),
+    });
+  }
+
+  toPrimitives(): Record<string, unknown> {
+    return { ok: true };
+  }
+
+  static override fromPrimitives(params: {
+    aggregateId: string;
+    eventId: string;
+    occurredOn: Date;
+  }): DomainEvent {
+    return new TestEvent({
+      aggregateId: params.aggregateId,
+      eventId: params.eventId,
+      occurredOn: params.occurredOn,
+    });
+  }
+}
+
+class RecordingSubscriber implements DomainEventSubscriber<TestEvent> {
+  public handled: DomainEvent[] = [];
+
+  subscribedTo(): Array<typeof TestEvent> {
+    return [TestEvent];
+  }
+
+  async on(event: TestEvent): Promise<void> {
+    this.handled.push(event);
+  }
+}
+
+class ThrowingSubscriber implements DomainEventSubscriber<TestEvent> {
+  subscribedTo(): Array<typeof TestEvent> {
+    return [TestEvent];
+  }
+
+  async on(): Promise<void> {
+    throw new Error('boom');
+  }
+}
+
+class FakeRedis {
+  public data = new Map<string, string>();
+  public acked: Array<{ stream: string; group: string; id: string }> = [];
+  public xaddCalls: unknown[][] = [];
+  public xaddShouldFail = false;
+  public pexpireCalls: Array<{ key: string; ttl: number }> = [];
+
+  async exists(key: string): Promise<number> {
+    return this.data.has(key) ? 1 : 0;
+  }
+
+  async set(key: string, value: string, mode?: string, ttl?: number): Promise<void> {
+    this.data.set(key, value);
+    if (mode === 'PX' && typeof ttl === 'number') {
+      this.pexpireCalls.push({ key, ttl });
+    }
+  }
+
+  async del(...keys: string[]): Promise<number> {
+    keys.forEach((key) => this.data.delete(key));
+    return keys.length;
+  }
+
+  async incr(key: string): Promise<number> {
+    const next = Number(this.data.get(key) ?? '0') + 1;
+    this.data.set(key, String(next));
+    return next;
+  }
+
+  async pexpire(key: string, ttl: number): Promise<number> {
+    this.pexpireCalls.push({ key, ttl });
+    return 1;
+  }
+
+  async xack(stream: string, group: string, id: string): Promise<void> {
+    this.acked.push({ stream, group, id });
+  }
+
+  async xadd(...args: unknown[]): Promise<void> {
+    if (this.xaddShouldFail) {
+      throw new Error('xadd failed');
+    }
+    this.xaddCalls.push(args);
+  }
+}
+
+class FakeDeadLetterRepository implements DeadLetterRepository {
+  public added: DeadLetterMessage[] = [];
+
+  async add(message: DeadLetterMessage): Promise<void> {
+    this.added.push(message);
+  }
+}
+
+const baseOptions = {
+  stream: 'events',
+  group: 'events-group',
+  consumer: 'consumer-1',
+  batchSize: 10,
+  blockMs: 1,
+  claimIdleMs: 1,
+  claimIntervalMs: 0,
+  maxAttempts: 3,
+  backoffMs: 1000,
+  backoffMaxMs: 5000,
+  processedTtlMs: 60_000,
+  dlqStream: 'events-dlq',
+};
+
+const buildFields = (overrides?: {
+  eventName?: string;
+  eventId?: string;
+  aggregateId?: string;
+  occurredOn?: string;
+  payload?: Record<string, unknown>;
+}): string[] => {
+  const payload = overrides?.payload ?? { ok: true };
+  return [
+    'eventName',
+    overrides?.eventName ?? TestEvent.EVENT_NAME,
+    'eventId',
+    overrides?.eventId ?? 'evt-1',
+    'aggregateId',
+    overrides?.aggregateId ?? 'agg-1',
+    'occurredOn',
+    overrides?.occurredOn ?? new Date('2024-01-01T00:00:00.000Z').toISOString(),
+    'payload',
+    JSON.stringify(payload),
+  ];
+};
+
+const buildConsumer = (
+  redis: FakeRedis,
+  subscribers: DomainEventSubscribers,
+  overrides?: Partial<typeof baseOptions>,
+  deadLetterRepository?: DeadLetterRepository
+): RedisStreamEventConsumer => {
+  return new RedisStreamEventConsumer(
+    redis as any,
+    subscribers,
+    { ...baseOptions, ...overrides },
+    deadLetterRepository
+  );
+};
+
+describe('RedisStreamEventConsumer', () => {
+  it('acks when required fields are missing', async () => {
+    const redis = new FakeRedis();
+    const consumer = buildConsumer(redis, DomainEventSubscribers.from([]));
+
+    await (consumer as any).handleEntry('1-0', ['eventName', TestEvent.EVENT_NAME]);
+
+    expect(redis.acked).toHaveLength(1);
+  });
+
+  it('acks when event was already processed', async () => {
+    const redis = new FakeRedis();
+    redis.data.set('events:processed:evt-1', '1');
+    const consumer = buildConsumer(redis, DomainEventSubscribers.from([]));
+
+    await (consumer as any).handleEntry('1-0', buildFields());
+
+    expect(redis.acked).toHaveLength(1);
+  });
+
+  it('does not ack when retry is blocked', async () => {
+    const redis = new FakeRedis();
+    redis.data.set('events:retry:evt-1', '1');
+    const consumer = buildConsumer(redis, DomainEventSubscribers.from([]));
+
+    await (consumer as any).handleEntry('1-0', buildFields());
+
+    expect(redis.acked).toHaveLength(0);
+  });
+
+  it('processes events and marks them as processed', async () => {
+    const redis = new FakeRedis();
+    const subscriber = new RecordingSubscriber();
+    const consumers = DomainEventSubscribers.from([
+      subscriber as DomainEventSubscriber<DomainEvent>,
+    ]);
+    const consumer = buildConsumer(redis, consumers);
+
+    await (consumer as any).handleEntry('1-0', buildFields());
+
+    expect(subscriber.handled).toHaveLength(1);
+    expect(redis.acked).toHaveLength(1);
+    expect(redis.data.has('events:processed:evt-1')).toBe(true);
+    expect(redis.data.has('events:attempts:evt-1')).toBe(false);
+    expect(redis.data.has('events:retry:evt-1')).toBe(false);
+  });
+
+  it('sets retry marker on failure', async () => {
+    const redis = new FakeRedis();
+    const consumers = DomainEventSubscribers.from([
+      new ThrowingSubscriber() as DomainEventSubscriber<DomainEvent>,
+    ]);
+    const consumer = buildConsumer(redis, consumers, { maxAttempts: 3 });
+
+    await (consumer as any).handleEntry('1-0', buildFields());
+
+    expect(redis.acked).toHaveLength(0);
+    expect(redis.data.has('events:retry:evt-1')).toBe(true);
+  });
+
+  it('sends to DLQ after max attempts and acks', async () => {
+    const redis = new FakeRedis();
+    redis.data.set('events:attempts:evt-1', '2');
+    const consumers = DomainEventSubscribers.from([
+      new ThrowingSubscriber() as DomainEventSubscriber<DomainEvent>,
+    ]);
+    const consumer = buildConsumer(redis, consumers, { maxAttempts: 3 });
+
+    await (consumer as any).handleEntry('1-0', buildFields());
+
+    expect(redis.xaddCalls).toHaveLength(1);
+    expect(redis.acked).toHaveLength(1);
+    expect(redis.data.has('events:processed:evt-1')).toBe(true);
+    expect(redis.data.has('events:attempts:evt-1')).toBe(false);
+  });
+
+  it('falls back to dead letter repository when DLQ publish fails', async () => {
+    const redis = new FakeRedis();
+    redis.xaddShouldFail = true;
+    const deadLetter = new FakeDeadLetterRepository();
+    const consumers = DomainEventSubscribers.from([
+      new ThrowingSubscriber() as DomainEventSubscriber<DomainEvent>,
+    ]);
+    const consumer = buildConsumer(redis, consumers, { maxAttempts: 1 }, deadLetter);
+
+    await (consumer as any).handleEntry('1-0', buildFields());
+
+    expect(deadLetter.added).toHaveLength(1);
+    expect(redis.acked).toHaveLength(1);
+  });
+});
