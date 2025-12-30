@@ -20,6 +20,20 @@ import { env } from '@/contexts/Shared/infrastructure/config/env';
 import { Pool } from 'pg';
 import Redis from 'ioredis';
 import { AuthService } from '@/contexts/Core/Auth/application/AuthService';
+import { AuthTokensService } from '@/contexts/Core/Auth/application/services/AuthTokensService';
+import { LoginUser } from '@/contexts/Core/Auth/application/use-cases/LoginUser';
+import { IssueTokensForUserId } from '@/contexts/Core/Auth/application/use-cases/IssueTokensForUserId';
+import { RefreshSession } from '@/contexts/Core/Auth/application/use-cases/RefreshSession';
+import { LogoutUser } from '@/contexts/Core/Auth/application/use-cases/LogoutUser';
+import { ResendVerification } from '@/contexts/Core/Auth/application/use-cases/ResendVerification';
+import { RequestPasswordReset } from '@/contexts/Core/Auth/application/use-cases/RequestPasswordReset';
+import { ResetPassword } from '@/contexts/Core/Auth/application/use-cases/ResetPassword';
+import { JwtAccessTokenSigner } from '@/contexts/Core/Auth/infrastructure/JwtAccessTokenSigner';
+import { CryptoRefreshTokenHasher } from '@/contexts/Core/Auth/infrastructure/CryptoRefreshTokenHasher';
+import { CryptoRefreshTokenGenerator } from '@/contexts/Core/Auth/infrastructure/CryptoRefreshTokenGenerator';
+import type { UserRepository } from '@/contexts/Core/User/domain/UserRepository';
+import type { RefreshTokenRepository } from '@/contexts/Core/Auth/domain/RefreshTokenRepository';
+import type { EventBus } from '@/contexts/Shared/domain/EventBus';
 
 export type AppContext = {
   commandBus: InMemoryCommandBus;
@@ -58,10 +72,30 @@ export const buildAppContext = (): AppContext => {
 
   const commandBus = new InMemoryCommandBus(commandHandlers);
   const queryBus = new InMemoryQueryBus(queryHandlers);
+  const userRepository = container.resolve<UserRepository>(TOKENS.UserRepository);
+  const refreshTokenRepository = container.resolve<RefreshTokenRepository>(TOKENS.RefreshTokenRepository);
+  const eventBus = container.resolve<EventBus>(TOKENS.EventBus);
+
+  const accessTokenSigner = new JwtAccessTokenSigner(env.authJwtSecret);
+  const refreshTokenHasher = new CryptoRefreshTokenHasher();
+  const refreshTokenGenerator = new CryptoRefreshTokenGenerator();
+  const tokensService = new AuthTokensService(
+    refreshTokenRepository,
+    accessTokenSigner,
+    refreshTokenHasher,
+    refreshTokenGenerator,
+    env.authAccessTokenTtlMs,
+    env.authRefreshTokenTtlMs
+  );
+
   const authService = new AuthService(
-    container.resolve(TOKENS.UserRepository),
-    container.resolve(TOKENS.RefreshTokenRepository),
-    container.resolve(TOKENS.EventBus)
+    new LoginUser(userRepository, tokensService),
+    new IssueTokensForUserId(userRepository, tokensService),
+    new RefreshSession(refreshTokenRepository, refreshTokenHasher, userRepository, tokensService),
+    new LogoutUser(refreshTokenRepository, refreshTokenHasher),
+    new ResendVerification(userRepository, eventBus),
+    new RequestPasswordReset(userRepository, eventBus, env.authPasswordResetTtlMs),
+    new ResetPassword(userRepository, eventBus)
   );
 
   return { commandBus, queryBus, authService };
