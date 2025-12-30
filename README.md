@@ -77,6 +77,10 @@ Para métricas de workers:
 bun run app:hono
 ```
 
+## Documentacion
+- `docs/architecture.md` (capas, contexto y outbox)
+- `docs/auth.md` (flujos de login/verificacion/refresh)
+
 ## Probar endpoints
 
 Usa el archivo `api.http` en tu IDE o con `curl`:
