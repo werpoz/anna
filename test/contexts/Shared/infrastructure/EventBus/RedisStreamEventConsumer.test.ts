@@ -63,6 +63,12 @@ class FakeRedis {
   public xaddCalls: unknown[][] = [];
   public xaddShouldFail = false;
   public pexpireCalls: Array<{ key: string; ttl: number }> = [];
+  public xgroupCalls: Array<unknown[]> = [];
+  public xgroupError: Error | null = null;
+  public readCalls: Array<unknown[]> = [];
+  public readResponses: Array<StreamResponse | null | Error> = [];
+  public autoClaimCalls: Array<unknown[]> = [];
+  public autoClaimResponses: Array<[string, StreamEntry[], string[]]> = [];
 
   async exists(key: string): Promise<number> {
     return this.data.has(key) ? 1 : 0;
@@ -100,6 +106,27 @@ class FakeRedis {
       throw new Error('xadd failed');
     }
     this.xaddCalls.push(args);
+  }
+
+  async xgroup(...args: unknown[]): Promise<void> {
+    this.xgroupCalls.push(args);
+    if (this.xgroupError) {
+      throw this.xgroupError;
+    }
+  }
+
+  async xreadgroup(...args: unknown[]): Promise<StreamResponse | null> {
+    this.readCalls.push(args);
+    const response = this.readResponses.shift();
+    if (response instanceof Error) {
+      throw response;
+    }
+    return response ?? null;
+  }
+
+  async xautoclaim(...args: unknown[]): Promise<[string, StreamEntry[], string[]]> {
+    this.autoClaimCalls.push(args);
+    return this.autoClaimResponses.shift() ?? ['0-0', [], []];
   }
 }
 
@@ -163,6 +190,65 @@ const buildConsumer = (
 };
 
 describe('RedisStreamEventConsumer', () => {
+  it('ensures group and ignores BUSYGROUP errors', async () => {
+    const redis = new FakeRedis();
+    redis.xgroupError = new Error('BUSYGROUP Consumer Group name already exists');
+    const consumer = buildConsumer(redis, DomainEventSubscribers.from([]));
+
+    await expect((consumer as any).ensureGroup()).resolves.toBeUndefined();
+  });
+
+  it('throws when ensureGroup fails with unexpected error', async () => {
+    const redis = new FakeRedis();
+    redis.xgroupError = new Error('boom');
+    const consumer = buildConsumer(redis, DomainEventSubscribers.from([]));
+
+    await expect((consumer as any).ensureGroup()).rejects.toThrow('boom');
+  });
+
+  it('skips claim when interval has not elapsed', async () => {
+    const redis = new FakeRedis();
+    const consumer = buildConsumer(redis, DomainEventSubscribers.from([]), { claimIntervalMs: 10_000 });
+
+    (consumer as any).lastClaimAt = Date.now();
+    await (consumer as any).claimPendingIfNeeded();
+
+    expect(redis.autoClaimCalls).toHaveLength(0);
+  });
+
+  it('claims pending entries and processes them', async () => {
+    const redis = new FakeRedis();
+    const subscriber = new RecordingSubscriber();
+    const consumers = DomainEventSubscribers.from([
+      subscriber as DomainEventSubscriber<DomainEvent>,
+    ]);
+    const consumer = buildConsumer(redis, consumers, { claimIntervalMs: 0 });
+
+    redis.autoClaimResponses.push(['1-0', [['1-0', buildFields()]], []]);
+
+    await (consumer as any).claimPendingIfNeeded();
+
+    expect(redis.autoClaimCalls).toHaveLength(1);
+    expect(subscriber.handled).toHaveLength(1);
+  });
+
+  it('processes entries from start loop', async () => {
+    const redis = new FakeRedis();
+    const subscriber = new RecordingSubscriber();
+    const consumers = DomainEventSubscribers.from([
+      subscriber as DomainEventSubscriber<DomainEvent>,
+    ]);
+    const consumer = buildConsumer(redis, consumers, { blockMs: 1 });
+
+    redis.readResponses.push([['events', [['1-0', buildFields()]]]]);
+    redis.readResponses.push(new Error('stop'));
+
+    await expect(consumer.start()).rejects.toThrow('stop');
+
+    expect(redis.readCalls.length).toBeGreaterThan(0);
+    expect(subscriber.handled).toHaveLength(1);
+  });
+
   it('acks when required fields are missing', async () => {
     const redis = new FakeRedis();
     const consumer = buildConsumer(redis, DomainEventSubscribers.from([]));

@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { describe, it, expect } from 'bun:test';
 import { ConsoleLogger } from '@/contexts/Shared/infrastructure/Logger/ConsoleLogger';
 

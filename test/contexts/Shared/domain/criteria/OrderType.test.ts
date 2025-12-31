@@ -17,4 +17,8 @@ describe('OrderType', () => {
   it('throws on invalid value', () => {
     expect(() => OrderType.fromValue('invalid')).toThrow(InvalidArgumentError);
   });
+
+  it('throws on invalid constructor value', () => {
+    expect(() => new OrderType('invalid' as OrderTypes)).toThrow(InvalidArgumentError);
+  });
 });

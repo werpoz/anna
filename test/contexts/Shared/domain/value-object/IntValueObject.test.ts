@@ -14,4 +14,10 @@ describe('NumberValueObject', () => {
     const b = new CountValue(3);
     expect(a.isBiggerThan(b)).toBe(true);
   });
+
+  it('returns false when not bigger', () => {
+    const a = new CountValue(3);
+    const b = new CountValue(5);
+    expect(a.isBiggerThan(b)).toBe(false);
+  });
 });

@@ -49,3 +49,9 @@ export const env = {
   outboxBatchSize: numberOrDefault(process.env.OUTBOX_BATCH_SIZE, 100),
   outboxIntervalMs: numberOrDefault(process.env.OUTBOX_INTERVAL_MS, 1000),
 };
+
+export const envHelpers = {
+  numberOrDefault,
+  numberOrUndefined,
+  booleanOrDefault,
+};

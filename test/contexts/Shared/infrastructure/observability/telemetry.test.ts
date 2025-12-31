@@ -10,6 +10,7 @@ describe('telemetry', () => {
 
     process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://localhost:4318/v1/traces';
     expect(() => initTelemetry('test-service')).not.toThrow();
+    expect(() => initTelemetry('test-service')).not.toThrow();
 
     if (previous === undefined) {
       delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT;

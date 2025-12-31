@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { describe, it, expect } from 'bun:test';
 import { PinoLogger } from '@/contexts/Shared/infrastructure/Logger/PinoLogger';
 import { logger } from '@/contexts/Shared/infrastructure/observability/logger';

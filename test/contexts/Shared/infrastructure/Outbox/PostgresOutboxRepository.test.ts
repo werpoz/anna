@@ -66,4 +66,14 @@ describe('PostgresOutboxRepository', () => {
     const firstQuery = pool.queries[0]!;
     expect(firstQuery.text).toContain('UPDATE outbox_events');
   });
+
+  it('marks pending with error', async () => {
+    const pool = new FakePool();
+    const repo = new PostgresOutboxRepository(pool as any);
+    await repo.markPending('1', 'boom');
+
+    const firstQuery = pool.queries[0]!;
+    expect(firstQuery.text).toContain('UPDATE outbox_events');
+    expect(firstQuery.values).toEqual(['1', 'boom']);
+  });
 });

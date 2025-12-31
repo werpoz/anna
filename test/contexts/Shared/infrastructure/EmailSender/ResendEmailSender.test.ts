@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { describe, it, expect, afterEach } from 'bun:test';
 import { ResendEmailSender } from '@/contexts/Shared/infrastructure/EmailSender/ResendEmailSender';
 import type Logger from '@/contexts/Shared/domain/Logger';

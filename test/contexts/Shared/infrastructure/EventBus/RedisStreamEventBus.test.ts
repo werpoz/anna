@@ -72,4 +72,12 @@ describe('RedisStreamEventBus', () => {
     await bus.publish([new TestEvent()]);
     expect(repo.pending).toHaveLength(1);
   });
+
+  it('accepts subscribers without action', () => {
+    const repo = new FakeOutboxRepository();
+    const publisher = new FakePublisher();
+    const bus = new RedisStreamEventBus(repo, publisher as any);
+
+    expect(() => bus.addSubscribers({} as any)).not.toThrow();
+  });
 });

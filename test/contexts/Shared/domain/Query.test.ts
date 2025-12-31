@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'bun:test';
-import * as module from '@/contexts/Shared/domain/Query';
+import { Query } from '@/contexts/Shared/domain/Query';
 
-describe('@/contexts/Shared/domain/Query', () => {
-  it('loads', () => {
-    expect(module).toBeDefined();
+class TestQuery extends Query {}
+
+describe('Query', () => {
+  it('can be extended', () => {
+    const query = new TestQuery();
+    expect(query).toBeInstanceOf(Query);
   });
 });

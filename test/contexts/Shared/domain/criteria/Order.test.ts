@@ -13,10 +13,18 @@ describe('Order', () => {
     const order = Order.fromValues('name');
     expect(order.orderType.value).toBe(OrderTypes.ASC);
     expect(order.orderBy.value).toBe('name');
+    expect(order.hasOrder()).toBe(true);
   });
 
   it('creates desc', () => {
     const order = Order.desc('created_at');
     expect(order.orderType.value).toBe(OrderTypes.DESC);
+    expect(order.hasOrder()).toBe(true);
+  });
+
+  it('creates asc explicitly', () => {
+    const order = Order.asc('email');
+    expect(order.orderType.value).toBe(OrderTypes.ASC);
+    expect(order.orderBy.value).toBe('email');
   });
 });

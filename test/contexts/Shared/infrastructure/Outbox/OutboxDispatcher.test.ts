@@ -68,4 +68,25 @@ describe('OutboxDispatcher', () => {
     expect(processed).toBe(1);
     expect(repo.pending).toHaveLength(1);
   });
+
+  it('loops and sleeps when no messages are processed', async () => {
+    const repo = new FakeRepository([]);
+    const publisher = new FakePublisher();
+    let calls = 0;
+
+    class TestDispatcher extends OutboxDispatcher {
+      async runOnce(): Promise<number> {
+        calls += 1;
+        if (calls === 1) {
+          return 0;
+        }
+        throw new Error('stop');
+      }
+    }
+
+    const dispatcher = new TestDispatcher(repo, publisher as any, { batchSize: 10, intervalMs: 1 });
+
+    await expect(dispatcher.start()).rejects.toThrow('stop');
+    expect(calls).toBe(2);
+  });
 });

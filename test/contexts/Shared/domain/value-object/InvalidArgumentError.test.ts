@@ -6,4 +6,9 @@ describe('InvalidArgumentError', () => {
     const error = new InvalidArgumentError('boom');
     expect(error.message).toBe('boom');
   });
+
+  it('is an Error instance', () => {
+    const error = new InvalidArgumentError('boom');
+    expect(error).toBeInstanceOf(Error);
+  });
 });

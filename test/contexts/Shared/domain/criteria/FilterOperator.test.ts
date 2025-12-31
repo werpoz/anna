@@ -16,4 +16,13 @@ describe('FilterOperator', () => {
   it('throws on invalid operator', () => {
     expect(() => FilterOperator.fromValue('INVALID')).toThrow(InvalidArgumentError);
   });
+
+  it('throws on invalid constructor value', () => {
+    expect(() => new FilterOperator('INVALID' as Operator)).toThrow(InvalidArgumentError);
+  });
+
+  it('builds equal operator', () => {
+    const op = FilterOperator.equal();
+    expect(op.value).toBe(Operator.EQUAL);
+  });
 });
