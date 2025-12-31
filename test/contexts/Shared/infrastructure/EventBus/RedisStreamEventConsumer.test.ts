@@ -6,6 +6,9 @@ import type { DomainEventSubscriber } from '@/contexts/Shared/domain/DomainEvent
 import type { DeadLetterRepository } from '@/contexts/Shared/infrastructure/DeadLetter/DeadLetterRepository';
 import type { DeadLetterMessage } from '@/contexts/Shared/infrastructure/DeadLetter/DeadLetterMessage';
 
+type StreamEntry = [string, string[]];
+type StreamResponse = [string, StreamEntry[]][];
+
 class TestEvent extends DomainEvent {
   static override EVENT_NAME = 'test.event';
 
@@ -44,6 +47,20 @@ class RecordingSubscriber implements DomainEventSubscriber<TestEvent> {
 
   async on(event: TestEvent): Promise<void> {
     this.handled.push(event);
+  }
+}
+
+class AbortingSubscriber extends RecordingSubscriber {
+  private readonly controller: AbortController;
+
+  constructor(controller: AbortController) {
+    super();
+    this.controller = controller;
+  }
+
+  override async on(event: TestEvent): Promise<void> {
+    await super.on(event);
+    this.controller.abort();
   }
 }
 
@@ -175,6 +192,19 @@ const buildFields = (overrides?: {
   ];
 };
 
+const buildFieldsWithRawPayload = (payload: string): string[] => [
+  'eventName',
+  TestEvent.EVENT_NAME,
+  'eventId',
+  'evt-1',
+  'aggregateId',
+  'agg-1',
+  'occurredOn',
+  new Date('2024-01-01T00:00:00.000Z').toISOString(),
+  'payload',
+  payload,
+];
+
 const buildConsumer = (
   redis: FakeRedis,
   subscribers: DomainEventSubscribers,
@@ -234,16 +264,15 @@ describe('RedisStreamEventConsumer', () => {
 
   it('processes entries from start loop', async () => {
     const redis = new FakeRedis();
-    const subscriber = new RecordingSubscriber();
+    const controller = new AbortController();
+    const subscriber = new AbortingSubscriber(controller);
     const consumers = DomainEventSubscribers.from([
       subscriber as DomainEventSubscriber<DomainEvent>,
     ]);
     const consumer = buildConsumer(redis, consumers, { blockMs: 1 });
 
     redis.readResponses.push([['events', [['1-0', buildFields()]]]]);
-    redis.readResponses.push(new Error('stop'));
-
-    await expect(consumer.start()).rejects.toThrow('stop');
+    await consumer.start(controller.signal);
 
     expect(redis.readCalls.length).toBeGreaterThan(0);
     expect(subscriber.handled).toHaveLength(1);
@@ -337,5 +366,38 @@ describe('RedisStreamEventConsumer', () => {
 
     expect(deadLetter.added).toHaveLength(1);
     expect(redis.acked).toHaveLength(1);
+  });
+
+  it('sends to DLQ and acks when payload is invalid JSON', async () => {
+    const redis = new FakeRedis();
+    const subscriber = new RecordingSubscriber();
+    const consumers = DomainEventSubscribers.from([
+      subscriber as DomainEventSubscriber<DomainEvent>,
+    ]);
+    const consumer = buildConsumer(redis, consumers);
+
+    await (consumer as any).handleEntry('1-0', buildFieldsWithRawPayload('{"invalid"'));
+
+    expect(redis.xaddCalls).toHaveLength(1);
+    expect(redis.acked).toHaveLength(1);
+    expect(redis.data.has('events:processed:evt-1')).toBe(true);
+  });
+
+  it('keeps running after read errors and stops on abort', async () => {
+    const redis = new FakeRedis();
+    const controller = new AbortController();
+    let calls = 0;
+    const consumers = DomainEventSubscribers.from([]);
+    const consumer = buildConsumer(redis, consumers, { backoffMs: 1 });
+
+    redis.xreadgroup = async (): Promise<StreamResponse | null> => {
+      calls += 1;
+      controller.abort();
+      throw new Error('boom');
+    };
+
+    await consumer.start(controller.signal);
+
+    expect(calls).toBe(1);
   });
 });

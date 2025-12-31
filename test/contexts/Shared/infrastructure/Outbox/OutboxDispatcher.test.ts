@@ -73,20 +73,44 @@ describe('OutboxDispatcher', () => {
     const repo = new FakeRepository([]);
     const publisher = new FakePublisher();
     let calls = 0;
+    const controller = new AbortController();
 
     class TestDispatcher extends OutboxDispatcher {
-      async runOnce(): Promise<number> {
+      override async runOnce(): Promise<number> {
         calls += 1;
-        if (calls === 1) {
-          return 0;
+        if (calls === 2) {
+          controller.abort();
         }
-        throw new Error('stop');
+        return 0;
       }
     }
 
     const dispatcher = new TestDispatcher(repo, publisher as any, { batchSize: 10, intervalMs: 1 });
 
-    await expect(dispatcher.start()).rejects.toThrow('stop');
+    await dispatcher.start(controller.signal);
+    expect(calls).toBe(2);
+  });
+
+  it('keeps running after loop errors and stops on abort', async () => {
+    const repo = new FakeRepository([]);
+    const publisher = new FakePublisher();
+    const controller = new AbortController();
+    let calls = 0;
+
+    class TestDispatcher extends OutboxDispatcher {
+      override async runOnce(): Promise<number> {
+        calls += 1;
+        if (calls === 1) {
+          throw new Error('boom');
+        }
+        controller.abort();
+        return 0;
+      }
+    }
+
+    const dispatcher = new TestDispatcher(repo, publisher as any, { batchSize: 10, intervalMs: 1 });
+
+    await dispatcher.start(controller.signal);
     expect(calls).toBe(2);
   });
 });

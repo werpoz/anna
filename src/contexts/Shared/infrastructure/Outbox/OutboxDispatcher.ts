@@ -55,10 +55,19 @@ export class OutboxDispatcher {
     return messages.length;
   }
 
-  async start(): Promise<void> {
-    while (true) {
-      const processed = await this.runOnce();
-      if (processed === 0) {
+  async start(signal?: AbortSignal): Promise<void> {
+    while (!signal?.aborted) {
+      try {
+        const processed = await this.runOnce();
+        if (signal?.aborted) {
+          return;
+        }
+        if (processed === 0) {
+          await sleep(this.options.intervalMs);
+        }
+      } catch (error) {
+        const exception = error instanceof Error ? error : new Error(String(error));
+        logger.error({ err: exception }, 'Outbox dispatcher loop failed');
         await sleep(this.options.intervalMs);
       }
     }

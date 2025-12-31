@@ -1,5 +1,5 @@
 import type Redis from 'ioredis';
-import type { DomainEvent, DomainEventClass } from '@/contexts/Shared/domain/DomainEvent';
+import { DomainEvent, type DomainEventClass } from '@/contexts/Shared/domain/DomainEvent';
 import type { DomainEventSubscriber } from '@/contexts/Shared/domain/DomainEventSubscriber';
 import { DomainEventSubscribers } from '@/contexts/Shared/infrastructure/EventBus/DomainEventSubscribers';
 import type { DeadLetterRepository } from '@/contexts/Shared/infrastructure/DeadLetter/DeadLetterRepository';
@@ -25,6 +25,10 @@ type ConsumerOptions = {
 type StreamEntry = [string, string[]];
 type StreamResponse = [string, StreamEntry[]][];
 
+type UnknownPayload = Record<string, unknown> | string | null;
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
 const parseFields = (fields: string[]): Record<string, string> => {
   const record: Record<string, string> = {};
   for (let i = 0; i < fields.length; i += 2) {
@@ -48,6 +52,30 @@ const buildEventClassMap = (
   });
   return map;
 };
+
+class UnknownDomainEvent extends DomainEvent {
+  readonly payload: UnknownPayload;
+
+  constructor(params: {
+    eventName: string;
+    aggregateId: string;
+    eventId: string;
+    occurredOn: Date;
+    payload: UnknownPayload;
+  }) {
+    super({
+      eventName: params.eventName,
+      aggregateId: params.aggregateId,
+      eventId: params.eventId,
+      occurredOn: params.occurredOn,
+    });
+    this.payload = params.payload;
+  }
+
+  toPrimitives(): { payload: UnknownPayload } {
+    return { payload: this.payload };
+  }
+}
 
 export class RedisStreamEventConsumer {
   private readonly redis: Redis;
@@ -73,32 +101,47 @@ export class RedisStreamEventConsumer {
     this.lastClaimAt = 0;
   }
 
-  async start(): Promise<void> {
-    await this.ensureGroup();
-
-    while (true) {
-      await this.claimPendingIfNeeded();
-      const response = (await this.redis.xreadgroup(
-        'GROUP',
-        this.options.group,
-        this.options.consumer,
-        'COUNT',
-        this.options.batchSize,
-        'BLOCK',
-        this.options.blockMs,
-        'STREAMS',
-        this.options.stream,
-        '>'
-      )) as StreamResponse | null;
-
-      if (!response) {
-        continue;
+  async start(signal?: AbortSignal): Promise<void> {
+    while (!signal?.aborted) {
+      try {
+        await this.ensureGroup();
+        break;
+      } catch (error) {
+        const exception = error instanceof Error ? error : new Error(String(error));
+        logger.error({ err: exception }, 'Event consumer group setup failed');
+        await sleep(this.options.backoffMs);
       }
+    }
 
-      for (const [, entries] of response) {
-        for (const [entryId, fields] of entries) {
-          await this.handleEntry(entryId, fields);
+    while (!signal?.aborted) {
+      try {
+        await this.claimPendingIfNeeded();
+        const response = (await this.redis.xreadgroup(
+          'GROUP',
+          this.options.group,
+          this.options.consumer,
+          'COUNT',
+          this.options.batchSize,
+          'BLOCK',
+          this.options.blockMs,
+          'STREAMS',
+          this.options.stream,
+          '>'
+        )) as StreamResponse | null;
+
+        if (!response) {
+          continue;
         }
+
+        for (const [, entries] of response) {
+          for (const [entryId, fields] of entries) {
+            await this.handleEntry(entryId, fields);
+          }
+        }
+      } catch (error) {
+        const exception = error instanceof Error ? error : new Error(String(error));
+        logger.error({ err: exception }, 'Event consumer loop failed');
+        await sleep(this.options.backoffMs);
       }
     }
   }
@@ -130,15 +173,6 @@ export class RedisStreamEventConsumer {
       return;
     }
 
-    const payload = data.payload ? JSON.parse(data.payload) : {};
-
-    const event = eventClass.fromPrimitives({
-      aggregateId,
-      eventId,
-      occurredOn: new Date(occurredOn),
-      attributes: payload,
-    }) as DomainEvent;
-
     const startTime = Date.now();
     const span = trace.getTracer('event-consumer').startSpan('event.process', {
       attributes: {
@@ -146,8 +180,63 @@ export class RedisStreamEventConsumer {
         'event.id': eventId,
       },
     });
+    const recordFailure = (exception: Error): void => {
+      metrics.eventsFailed.inc({ event_name: eventName });
+      metrics.eventProcessingDuration.observe({ event_name: eventName }, Date.now() - startTime);
+      span.recordException(exception);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: exception.message });
+    };
+    const occurredOnDate = new Date(occurredOn);
+    const payloadRaw = data.payload ?? null;
+    let event!: DomainEvent;
 
     try {
+      let payload: Record<string, unknown> = {};
+      try {
+        payload = payloadRaw ? JSON.parse(payloadRaw) : {};
+      } catch (error) {
+        const exception = error instanceof Error ? error : new Error(String(error));
+        recordFailure(exception);
+        logger.error({ err: exception }, `Event payload invalid: ${eventName} ${eventId}`);
+        await this.handleInvalidPayload(
+          entryId,
+          new UnknownDomainEvent({
+            eventName,
+            aggregateId,
+            eventId,
+            occurredOn: occurredOnDate,
+            payload: payloadRaw,
+          }),
+          exception
+        );
+        return;
+      }
+
+      try {
+        event = eventClass.fromPrimitives({
+          aggregateId,
+          eventId,
+          occurredOn: occurredOnDate,
+          attributes: payload,
+        }) as DomainEvent;
+      } catch (error) {
+        const exception = error instanceof Error ? error : new Error(String(error));
+        recordFailure(exception);
+        logger.error({ err: exception }, `Event payload invalid: ${eventName} ${eventId}`);
+        await this.handleInvalidPayload(
+          entryId,
+          new UnknownDomainEvent({
+            eventName,
+            aggregateId,
+            eventId,
+            occurredOn: occurredOnDate,
+            payload,
+          }),
+          exception
+        );
+        return;
+      }
+
       const subscribers = this.subscribers.getSubscribersFor(eventName) as Array<
         DomainEventSubscriber<DomainEvent>
       >;
@@ -163,13 +252,10 @@ export class RedisStreamEventConsumer {
       await this.redis.xack(this.options.stream, this.options.group, entryId);
       span.setStatus({ code: SpanStatusCode.OK });
     } catch (error) {
-      metrics.eventsFailed.inc({ event_name: eventName });
-      metrics.eventProcessingDuration.observe({ event_name: eventName }, Date.now() - startTime);
       const exception = error instanceof Error ? error : new Error(String(error));
-      span.recordException(exception);
-      span.setStatus({ code: SpanStatusCode.ERROR, message: exception.message });
+      recordFailure(exception);
       logger.error({ err: exception }, `Event processing failed: ${eventName} ${eventId}`);
-      await this.handleFailure(entryId, event, error);
+      await this.handleFailure(entryId, event, exception);
     } finally {
       span.end();
     }
@@ -273,6 +359,17 @@ export class RedisStreamEventConsumer {
 
     const backoffMs = this.computeBackoffMs(attempts);
     await this.redis.set(this.retryKey(event.eventId), '1', 'PX', backoffMs);
+  }
+
+  private async handleInvalidPayload(
+    entryId: string,
+    event: DomainEvent,
+    error: Error
+  ): Promise<void> {
+    await this.publishToDlq(event, error.message, this.options.maxAttempts);
+    await this.markProcessed(event.eventId);
+    await this.clearAttempts(event.eventId);
+    await this.redis.xack(this.options.stream, this.options.group, entryId);
   }
 
   private async publishToDlq(event: DomainEvent, errorMessage: string, attempts: number): Promise<void> {
