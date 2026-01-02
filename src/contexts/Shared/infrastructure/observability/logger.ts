@@ -7,34 +7,55 @@ const prettyEnabled =
   process.env.LOG_PRETTY === 'true' && (process.env.NODE_ENV ?? 'development') !== 'production';
 
 const require = createRequire(import.meta.url);
-const resolvePrettyTarget = (): string | null => {
+const resolvePrettyTarget = (pkg = 'pino-pretty'): string | null => {
   try {
-    return require.resolve('pino-pretty');
-  } catch {
-    return null;
-  }
+    return require.resolve(pkg);
+  } catch { return null; }
 };
 
-const prettyTarget = prettyEnabled ? resolvePrettyTarget() : null;
+type LoggerBuildOptions = {
+  serviceName: string;
+  logLevel: string;
+  envName: string;
+  prettyEnabled: boolean;
+  prettyTarget?: string | null;
+};
 
-export const logger = pino({
-  level: logLevel,
-  base: {
-    service: serviceName,
-    pid: process.pid,
-    env: process.env.NODE_ENV ?? 'development',
-  },
-  timestamp: pino.stdTimeFunctions.isoTime,
-  transport: prettyTarget
-    ? {
-        target: prettyTarget,
-        options: {
-          colorize: true,
-          translateTime: 'SYS:standard',
-          levelFirst: true,
-          messageFormat: '[{service}] {msg}',
-          ignore: 'pid,hostname,env',
-        },
-      }
-    : undefined,
+const buildLogger = (options: LoggerBuildOptions) => {
+  const prettyTarget =
+    options.prettyTarget ?? (options.prettyEnabled ? resolvePrettyTarget() : null);
+
+  return pino({
+    level: options.logLevel,
+    base: {
+      service: options.serviceName,
+      pid: process.pid,
+      env: options.envName,
+    },
+    timestamp: pino.stdTimeFunctions.isoTime,
+    transport: prettyTarget
+      ? {
+          target: prettyTarget,
+          options: {
+            colorize: true,
+            translateTime: 'SYS:standard',
+            levelFirst: true,
+            messageFormat: '[{service}] {msg}',
+            ignore: 'pid,hostname,env',
+          },
+        }
+      : undefined,
+  });
+};
+
+export const logger = buildLogger({
+  serviceName,
+  logLevel,
+  envName: process.env.NODE_ENV ?? 'development',
+  prettyEnabled,
 });
+
+export const loggerHelpers = {
+  resolvePrettyTarget,
+  buildLogger,
+};

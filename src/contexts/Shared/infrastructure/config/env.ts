@@ -48,6 +48,10 @@ export const env = {
   metricsPort: numberOrUndefined(process.env.METRICS_PORT),
   outboxBatchSize: numberOrDefault(process.env.OUTBOX_BATCH_SIZE, 100),
   outboxIntervalMs: numberOrDefault(process.env.OUTBOX_INTERVAL_MS, 1000),
+  sessionsQrTtlMs: numberOrDefault(process.env.SESSIONS_QR_TTL_MS, 60 * 1000),
+  sessionsPrintQr: booleanOrDefault(process.env.SESSIONS_PRINT_QR, false),
+  sessionsMarkOnlineOnConnect: booleanOrDefault(process.env.SESSIONS_MARK_ONLINE, false),
+  sessionsBrowserName: process.env.SESSIONS_BROWSER_NAME ?? 'Anna',
 };
 
 export const envHelpers = {
