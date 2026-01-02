@@ -5,7 +5,7 @@ Proyecto base para un SaaS orientado a sesiones de WhatsApp. Provee una API simp
 ## Requisitos
 - Bun v1.3.x
 - Docker (para Dragonfly y Postgres)
-- psql (para ejecutar el schema del outbox)
+- psql (para ejecutar el schema del outbox y migraciones)
 
 ## Instalación
 
@@ -30,6 +30,7 @@ Defaults (puedes sobrescribir con variables de entorno):
 - `LOG_LEVEL=info`
 - `OTEL_SERVICE_NAME=anna`
 - `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces`
+- `APP_BASE_URL=http://localhost:3000`
 - `AUTH_JWT_SECRET=dev-secret-change-me`
 - `AUTH_ACCESS_TOKEN_TTL_MS=900000`
 - `AUTH_REFRESH_TOKEN_TTL_MS=2592000000`
@@ -50,11 +51,67 @@ Defaults (puedes sobrescribir con variables de entorno):
 ## Schema del Outbox
 
 ```bash
-psql "$DATABASE_URL" -f database/outbox.sql
+docker compose exec -T postgres psql -U anna -d anna -f - < database/outbox.sql
+```
+
+Runner (usa `DATABASE_URL`, no requiere psql local):
+```bash
+bun run db:outbox
 ```
 
 DLQ fallback (Postgres):
 - Se guarda en la tabla `dead_letters` si falla el stream de DLQ.
+
+## Migraciones (usuarios y refresh tokens)
+
+```bash
+docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0001__users.sql
+docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0002__refresh_tokens.sql
+```
+
+Runner (usa `DATABASE_URL`, no requiere psql local):
+```bash
+bun run db:migrate
+```
+
+## Levantar en desarrollo
+1) Infra:
+```bash
+docker compose up -d
+```
+
+2) Esquema de BD (outbox + migraciones):
+```bash
+bun run db:outbox
+bun run db:migrate
+```
+
+3) Workers y API:
+```bash
+bun run worker:outbox
+bun run worker:events
+bun run app:hono
+```
+
+## Levantar en producción
+1) Provisiona Postgres y Redis, y define variables reales:
+- `DATABASE_URL` (con SSL si aplica)
+- `REDIS_URL`
+- `AUTH_JWT_SECRET` (secreto fuerte)
+- `AUTH_COOKIE_SECURE=true`
+- `RESEND_API_KEY` y `RESEND_FROM`
+- `APP_BASE_URL` (dominio real)
+
+2) Aplica esquema y migraciones:
+```bash
+bun run db:outbox
+bun run db:migrate
+```
+
+3) Ejecuta procesos (API + workers) con un process manager (systemd/pm2/Docker):
+- `bun run app:hono`
+- `bun run worker:outbox`
+- `bun run worker:events`
 
 ## Workers
 
@@ -113,6 +170,12 @@ curl -X POST http://localhost:3000/auth/refresh
 Logout (revoca refresh token):
 ```bash
 curl -X POST http://localhost:3000/auth/logout
+```
+
+Logout all (revoca todas las sesiones del usuario actual):
+```bash
+curl -X POST http://localhost:3000/auth/logout-all \
+  -H 'Authorization: Bearer <accessToken>'
 ```
 
 Reenviar verificacion:
@@ -202,9 +265,8 @@ curl http://localhost:3000/users/me \
 - Observabilidad: logs estructurados, métricas (latencia, fallos), tracing.
 - Healthchecks: endpoints o señales de vida para API y workers.
 - Testing: unitarios para dominio + integración para outbox/streams.
-- Migraciones: herramienta formal (Prisma/Knex/Flyway) y versionado.
+- Migraciones: automatizar runner/CLI para aplicar scripts en orden.
 - Seguridad: autenticación, autorización, rate limiting, secrets.
-- Persistencia real de usuarios: hoy es `InMemoryUserRepository`.
 - Manejo de errores de dominio en la API (respuestas 4xx claras).
 - Idempotencia end‑to‑end: contratos claros y dedupe en comandos.
 - Configuración por entorno: `.env`, validación y secrets management.

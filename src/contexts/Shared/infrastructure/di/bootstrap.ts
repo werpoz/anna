@@ -6,8 +6,8 @@ import { InMemoryQueryBus } from '@/contexts/Shared/infrastructure/QueryBus/InMe
 import { TOKENS } from '@/contexts/Shared/infrastructure/di/tokens';
 import { PinoLogger } from '@/contexts/Shared/infrastructure/Logger/PinoLogger';
 import { ResendEmailSender } from '@/contexts/Shared/infrastructure/EmailSender/ResendEmailSender';
-import { InMemoryUserRepository } from '@/contexts/Core/User/infrastructure/InMemoryUserRepository';
-import { InMemoryRefreshTokenRepository } from '@/contexts/Core/Auth/infrastructure/InMemoryRefreshTokenRepository';
+import { PostgresUserRepository } from '@/contexts/Core/User/infrastructure/PostgresUserRepository';
+import { PostgresRefreshTokenRepository } from '@/contexts/Core/Auth/infrastructure/PostgresRefreshTokenRepository';
 import type { CommandHandler } from '@/contexts/Shared/domain/CommandHandler';
 import type { Command } from '@/contexts/Shared/domain/Command';
 import type { QueryHandler } from '@/contexts/Shared/domain/QueryHandler';
@@ -43,6 +43,14 @@ export type AppContext = {
 };
 
 export const buildAppContext = (): AppContext => {
+  let pool: Pool | null = null;
+  const getPool = (): Pool => {
+    if (!pool) {
+      pool = new Pool({ connectionString: env.databaseUrl });
+    }
+    return pool;
+  };
+
   if (!container.isRegistered(TOKENS.Logger)) {
     container.registerSingleton(TOKENS.Logger, PinoLogger);
   }
@@ -52,15 +60,18 @@ export const buildAppContext = (): AppContext => {
   }
 
   if (!container.isRegistered(TOKENS.UserRepository)) {
-    container.registerSingleton(TOKENS.UserRepository, InMemoryUserRepository);
+    container.registerInstance(TOKENS.UserRepository, new PostgresUserRepository(getPool()));
   }
 
   if (!container.isRegistered(TOKENS.RefreshTokenRepository)) {
-    container.registerSingleton(TOKENS.RefreshTokenRepository, InMemoryRefreshTokenRepository);
+    container.registerInstance(
+      TOKENS.RefreshTokenRepository,
+      new PostgresRefreshTokenRepository(getPool())
+    );
   }
 
   if (!container.isRegistered(TOKENS.EventBus)) {
-    const pool = new Pool({ connectionString: env.databaseUrl });
+    const pool = getPool();
     const redis = new Redis(env.redisUrl);
     const outboxRepository = new PostgresOutboxRepository(pool);
     const publisher = new RedisStreamPublisher(redis, env.eventsStream);
