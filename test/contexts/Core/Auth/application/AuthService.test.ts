@@ -25,6 +25,7 @@ describe('AuthService', () => {
     const issue = makeUseCase(tokenResult);
     const refresh = makeUseCase(tokenResult);
     const logout = makeUseCase(undefined);
+    const logoutAll = makeUseCase(undefined);
     const resend = makeUseCase(undefined);
     const request = makeUseCase(undefined);
     const reset = makeUseCase(undefined);
@@ -34,6 +35,7 @@ describe('AuthService', () => {
       issue as any,
       refresh as any,
       logout as any,
+      logoutAll as any,
       resend as any,
       request as any,
       reset as any
@@ -43,6 +45,7 @@ describe('AuthService', () => {
     await service.issueTokensForUserId('user-1');
     await service.refresh('refresh-token');
     await service.logout('refresh-token');
+    await service.logoutAll('user-1');
     await service.resendVerification('ada@example.com');
     await service.requestPasswordReset('ada@example.com');
     await service.resetPassword('ada@example.com', 'token', 'new-password');
@@ -51,6 +54,7 @@ describe('AuthService', () => {
     expect(issue.calls).toHaveLength(1);
     expect(refresh.calls).toHaveLength(1);
     expect(logout.calls).toHaveLength(1);
+    expect(logoutAll.calls).toHaveLength(1);
     expect(resend.calls).toHaveLength(1);
     expect(request.calls).toHaveLength(1);
     expect(reset.calls).toHaveLength(1);

@@ -3,6 +3,7 @@ import { LoginUser } from '@/contexts/Core/Auth/application/use-cases/LoginUser'
 import { IssueTokensForUserId } from '@/contexts/Core/Auth/application/use-cases/IssueTokensForUserId';
 import { RefreshSession } from '@/contexts/Core/Auth/application/use-cases/RefreshSession';
 import { LogoutUser } from '@/contexts/Core/Auth/application/use-cases/LogoutUser';
+import { LogoutAllUserSessions } from '@/contexts/Core/Auth/application/use-cases/LogoutAllUserSessions';
 import { ResendVerification } from '@/contexts/Core/Auth/application/use-cases/ResendVerification';
 import { RequestPasswordReset } from '@/contexts/Core/Auth/application/use-cases/RequestPasswordReset';
 import { ResetPassword } from '@/contexts/Core/Auth/application/use-cases/ResetPassword';
@@ -13,6 +14,7 @@ export class AuthService {
     private readonly issueTokensForUserIdUseCase: IssueTokensForUserId,
     private readonly refreshSession: RefreshSession,
     private readonly logoutUser: LogoutUser,
+    private readonly logoutAllUserSessions: LogoutAllUserSessions,
     private readonly resendVerificationUseCase: ResendVerification,
     private readonly requestPasswordResetUseCase: RequestPasswordReset,
     private readonly resetPasswordUseCase: ResetPassword
@@ -32,6 +34,10 @@ export class AuthService {
 
   async logout(refreshToken: string): Promise<void> {
     await this.logoutUser.execute(refreshToken);
+  }
+
+  async logoutAll(userId: string): Promise<void> {
+    await this.logoutAllUserSessions.execute(userId);
   }
 
   async resendVerification(email: string): Promise<void> {

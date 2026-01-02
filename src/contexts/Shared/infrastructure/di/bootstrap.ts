@@ -25,6 +25,7 @@ import { LoginUser } from '@/contexts/Core/Auth/application/use-cases/LoginUser'
 import { IssueTokensForUserId } from '@/contexts/Core/Auth/application/use-cases/IssueTokensForUserId';
 import { RefreshSession } from '@/contexts/Core/Auth/application/use-cases/RefreshSession';
 import { LogoutUser } from '@/contexts/Core/Auth/application/use-cases/LogoutUser';
+import { LogoutAllUserSessions } from '@/contexts/Core/Auth/application/use-cases/LogoutAllUserSessions';
 import { ResendVerification } from '@/contexts/Core/Auth/application/use-cases/ResendVerification';
 import { RequestPasswordReset } from '@/contexts/Core/Auth/application/use-cases/RequestPasswordReset';
 import { ResetPassword } from '@/contexts/Core/Auth/application/use-cases/ResetPassword';
@@ -93,6 +94,7 @@ export const buildAppContext = (): AppContext => {
     new IssueTokensForUserId(userRepository, tokensService),
     new RefreshSession(refreshTokenRepository, refreshTokenHasher, userRepository, tokensService),
     new LogoutUser(refreshTokenRepository, refreshTokenHasher),
+    new LogoutAllUserSessions(refreshTokenRepository),
     new ResendVerification(userRepository, eventBus),
     new RequestPasswordReset(userRepository, eventBus, env.authPasswordResetTtlMs),
     new ResetPassword(userRepository, eventBus)
