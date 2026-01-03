@@ -121,6 +121,9 @@ export class RedisSessionCommandConsumer {
           messageId: command.messageId,
         });
         return;
+      case 'session.delete':
+        await this.sessionService.delete(command.sessionId);
+        return;
       default:
         throw new Error(`Unknown session command: ${(command as SessionCommand).type}`);
     }

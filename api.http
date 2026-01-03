@@ -12,11 +12,11 @@ Content-Type: application/json
 # Tip: el codigo aparece en consola del worker como [UserVerificationCode]
 # Alternativa: usa "token": "<verification_token>" si vienes desde un link.
 # Respuesta: access token + refresh cookie (Set-Cookie).
-POST http://localhost:3000/users/<user_id>/verify
+POST http://localhost:3000/users/6bf0f6fb-ddcf-47e7-a396-004c894438b3/verify
 Content-Type: application/json
 
 {
-  "code": "<verification_code>"
+  "code": "623786"
 }
 
 ### Hono - get user (me)
@@ -76,6 +76,10 @@ Content-Type: application/json
 {
   "reason": "logout"
 }
+
+### Hono - delete session (async)
+DELETE http://localhost:3000/sessions/<session_id>
+Authorization: Bearer <access_token>
 
 ### Hono - send session message (async)
 POST http://localhost:3000/sessions/<session_id>/messages

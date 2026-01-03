@@ -185,6 +185,15 @@
         word-break: break-all;
       }
 
+      .qr-image {
+        width: 100%;
+        max-width: 240px;
+        background: #fff;
+        border-radius: 12px;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
       .log {
         background: rgba(7, 10, 18, 0.9);
         border-radius: 12px;
@@ -232,311 +241,409 @@
     </style>
   </head>
   <body>
-    <header>
-      <h1>Anna Sessions Lab</h1>
-      <p>Quick UI to start sessions, listen to realtime updates, and fire messages. Events are streamed via WebSocket and filtered by your tenant.</p>
-    </header>
+    <div id="root"></div>
 
-    <section class="grid">
-      <div class="card">
-        <div class="stack">
-          <div>
-            <label>Email</label>
-            <input id="email" placeholder="you@example.com" />
-          </div>
-          <div>
-            <label>Password</label>
-            <input id="password" type="password" placeholder="••••••••" />
-          </div>
-          <div>
-            <label>Access token</label>
-            <input id="accessToken" placeholder="Bearer token" />
-          </div>
-          <div>
-            <label>Session ID (optional)</label>
-            <input id="sessionId" placeholder="Leave empty to auto-generate" />
-          </div>
-          <div class="buttons">
-            <button id="login">Login</button>
-            <button id="connectWs">Connect WS</button>
-            <button id="disconnectWs" class="secondary">Disconnect</button>
-          </div>
-          <div class="buttons">
-            <button id="startSession">Start session</button>
-            <button id="stopSession" class="warn">Stop session</button>
-          </div>
-          <div class="status">
-            <span class="pill" id="wsStatus">ws: idle</span>
-            <span class="pill" id="sessionStatus">session: idle</span>
-          </div>
-        </div>
-      </div>
+    <script type="module">
+      import React, { useEffect, useMemo, useRef, useState } from 'https://esm.sh/react@18.3.1';
+      import { createRoot } from 'https://esm.sh/react-dom@18.3.1/client';
+      import htm from 'https://esm.sh/htm@3.1.1';
+      import * as QRCode from 'https://esm.sh/qrcode@1.5.4';
 
-      <div class="card split">
-        <div class="stack">
-          <div>
-            <label>QR payload</label>
-            <div class="qr-box" id="qrBox">Waiting for QR...</div>
-            <div class="status">
-              <span class="pill" id="qrExpiry">expires: -</span>
-            </div>
-          </div>
-          <div>
-            <label>Send message</label>
-            <input id="messageTo" placeholder="to (jid)" />
-          </div>
-          <div>
-            <textarea id="messageContent" placeholder="message content"></textarea>
-          </div>
-          <div class="buttons">
-            <button id="sendMessage">Send message</button>
-            <button id="clearLog" class="secondary">Clear log</button>
-          </div>
-        </div>
-        <div>
-          <label>Event stream</label>
-          <div class="log" id="eventLog"></div>
-        </div>
-      </div>
-    </section>
+      const html = htm.bind(React.createElement);
 
-    <script>
-      const accessTokenInput = document.getElementById('accessToken');
-      const emailInput = document.getElementById('email');
-      const passwordInput = document.getElementById('password');
-      const sessionIdInput = document.getElementById('sessionId');
-      const wsStatus = document.getElementById('wsStatus');
-      const sessionStatus = document.getElementById('sessionStatus');
-      const qrBox = document.getElementById('qrBox');
-      const qrExpiry = document.getElementById('qrExpiry');
-      const eventLog = document.getElementById('eventLog');
-      const messageToInput = document.getElementById('messageTo');
-      const messageContentInput = document.getElementById('messageContent');
-
-      const storedToken = localStorage.getItem('sessionLab.token');
-      if (storedToken) {
-        accessTokenInput.value = storedToken;
-      }
-
-      const storedEmail = localStorage.getItem('sessionLab.email');
-      if (storedEmail) {
-        emailInput.value = storedEmail;
-      }
-
-      const storedSessionId = localStorage.getItem('sessionLab.sessionId');
-      if (storedSessionId) {
-        sessionIdInput.value = storedSessionId;
-      }
-
-      let ws = null;
-
-      const setPill = (pill, text, live) => {
-        pill.textContent = text;
-        pill.classList.toggle('live', Boolean(live));
-      };
-
-      const appendLog = (type, payload) => {
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        const time = new Date().toLocaleTimeString();
-        entry.innerHTML = `<div class="tag">${type}</div><div class="muted">${time}</div><pre>${JSON.stringify(payload, null, 2)}</pre>`;
-        eventLog.prepend(entry);
-      };
-
-      const ensureToken = () => {
-        const token = accessTokenInput.value.trim();
-        if (!token) {
-          alert('Access token is required');
-          return null;
-        }
-        localStorage.setItem('sessionLab.token', token);
-        return token;
-      };
-
-      const ensureSessionId = () => {
-        const sessionId = sessionIdInput.value.trim();
-        if (!sessionId) {
-          return null;
-        }
-        localStorage.setItem('sessionLab.sessionId', sessionId);
-        return sessionId;
-      };
-
-      const connectWs = () => {
-        const token = ensureToken();
-        if (!token) return;
-
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          return;
-        }
-
-        const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-        const wsUrl = `${protocol}://${location.host}/ws/sessions?accessToken=${encodeURIComponent(token)}`;
-        ws = new WebSocket(wsUrl);
-
-        ws.addEventListener('open', () => {
-          setPill(wsStatus, 'ws: connected', true);
+      const useLocalStorageState = (key, initialValue) => {
+        const [value, setValue] = useState(() => {
+          const stored = localStorage.getItem(key);
+          return stored ?? initialValue;
         });
 
-        ws.addEventListener('close', () => {
-          setPill(wsStatus, 'ws: closed', false);
-        });
-
-        ws.addEventListener('error', () => {
-          setPill(wsStatus, 'ws: error', false);
-        });
-
-        ws.addEventListener('message', (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            appendLog(data.type || 'event', data);
-
-            if (data.type === 'session.qr.updated') {
-              qrBox.textContent = data.payload.qr;
-              qrExpiry.textContent = `expires: ${data.payload.expiresAt}`;
-              setPill(sessionStatus, 'session: pending_qr', true);
-            }
-
-            if (data.type === 'session.status.connected') {
-              setPill(sessionStatus, 'session: connected', true);
-            }
-
-            if (data.type === 'session.status.disconnected') {
-              setPill(sessionStatus, 'session: disconnected', false);
-            }
-          } catch (error) {
-            appendLog('parse_error', { message: String(error) });
+        useEffect(() => {
+          if (value === null || value === undefined) {
+            localStorage.removeItem(key);
+          } else {
+            localStorage.setItem(key, value);
           }
-        });
+        }, [key, value]);
+
+        return [value, setValue];
       };
 
-      const disconnectWs = () => {
-        if (ws) {
-          ws.close();
-        }
+      const App = () => {
+        const [email, setEmail] = useLocalStorageState('sessionLab.email', '');
+        const [token, setToken] = useLocalStorageState('sessionLab.token', '');
+        const [sessionId, setSessionId] = useLocalStorageState('sessionLab.sessionId', '');
+        const [password, setPassword] = useState('');
+        const [wsStatus, setWsStatus] = useState('ws: idle');
+        const [wsLive, setWsLive] = useState(false);
+        const [sessionStatus, setSessionStatus] = useState('session: idle');
+        const [sessionLive, setSessionLive] = useState(false);
+        const [qr, setQr] = useState('Waiting for QR...');
+        const [qrImage, setQrImage] = useState('');
+        const [qrExpires, setQrExpires] = useState('expires: -');
+        const [logEntries, setLogEntries] = useState([]);
+        const [messageTo, setMessageTo] = useState('');
+        const [messageContent, setMessageContent] = useState('');
+        const wsRef = useRef(null);
+        const qrVersionRef = useRef(0);
+
+        const buildQrDataUrl = async (value) => {
+          const fn = QRCode.toDataURL ?? QRCode.default?.toDataURL ?? QRCode.default;
+          if (typeof fn !== 'function') {
+            throw new Error('QRCode.toDataURL is not available');
+          }
+          return await fn(value, { margin: 1, width: 240 });
+        };
+
+        const appendLog = (type, payload) => {
+          const entry = {
+            id: crypto.randomUUID(),
+            type,
+            time: new Date().toLocaleTimeString(),
+            payload,
+          };
+          setLogEntries((prev) => [entry, ...prev].slice(0, 100));
+        };
+
+        const ensureToken = () => {
+          if (!token.trim()) {
+            alert('Access token is required');
+            return null;
+          }
+          return token.trim();
+        };
+
+        const ensureSessionId = () => {
+          if (!sessionId.trim()) {
+            return null;
+          }
+          return sessionId.trim();
+        };
+
+        const connectWs = () => {
+          const authToken = ensureToken();
+          if (!authToken) return;
+
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            return;
+          }
+
+          const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+          const wsUrl = `${protocol}://${location.host}/ws/sessions?accessToken=${encodeURIComponent(authToken)}`;
+          const socket = new WebSocket(wsUrl);
+          wsRef.current = socket;
+
+          socket.addEventListener('open', () => {
+            setWsStatus('ws: connected');
+            setWsLive(true);
+          });
+
+          socket.addEventListener('close', () => {
+            setWsStatus('ws: closed');
+            setWsLive(false);
+          });
+
+          socket.addEventListener('error', () => {
+            setWsStatus('ws: error');
+            setWsLive(false);
+          });
+
+          socket.addEventListener('message', (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              appendLog(data.type || 'event', data);
+
+              if (data.type === 'session.qr.updated') {
+                setQr(data.payload.qr);
+                setQrExpires(`expires: ${data.payload.expiresAt}`);
+                setSessionStatus('session: pending_qr');
+                setSessionLive(true);
+                const version = ++qrVersionRef.current;
+                buildQrDataUrl(data.payload.qr)
+                  .then((url) => {
+                    if (qrVersionRef.current === version) {
+                      setQrImage(url);
+                    }
+                  })
+                  .catch(() => {
+                    if (qrVersionRef.current === version) {
+                      setQrImage('');
+                    }
+                  });
+              }
+
+              if (data.type === 'session.status.connected') {
+                setSessionStatus('session: connected');
+                setSessionLive(true);
+              }
+
+              if (data.type === 'session.status.disconnected') {
+                setSessionStatus('session: disconnected');
+                setSessionLive(false);
+              }
+            } catch (error) {
+              appendLog('parse_error', { message: String(error) });
+            }
+          });
+        };
+
+        const disconnectWs = () => {
+          if (wsRef.current) {
+            wsRef.current.close();
+          }
+        };
+
+        const login = async () => {
+          const emailValue = email.trim();
+          if (!emailValue || !password) {
+            alert('Email and password are required');
+            return;
+          }
+
+          const response = await fetch('/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: emailValue, password }),
+          });
+
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            alert(payload.message || 'Login failed');
+            return;
+          }
+
+          if (payload.accessToken) {
+            setToken(payload.accessToken);
+            setPassword('');
+            appendLog('auth.login', payload);
+          }
+        };
+
+        const startSession = async () => {
+          const authToken = ensureToken();
+          if (!authToken) return;
+
+          const id = ensureSessionId();
+          const response = await fetch('/sessions', {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: id ? JSON.stringify({ sessionId: id }) : null,
+          });
+
+          const payload = await response.json();
+          appendLog('session.start', payload);
+          if (payload.sessionId) {
+            setSessionId(payload.sessionId);
+          }
+        };
+
+        const stopSession = async () => {
+          const authToken = ensureToken();
+          if (!authToken) return;
+
+          const id = ensureSessionId();
+          if (!id) {
+            alert('Session ID is required');
+            return;
+          }
+
+          const response = await fetch(`/sessions/${id}/stop`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ reason: 'manual_stop' }),
+          });
+
+          const payload = await response.json();
+          appendLog('session.stop', payload);
+        };
+
+        const deleteSession = async () => {
+          const authToken = ensureToken();
+          if (!authToken) return;
+
+          const id = ensureSessionId();
+          if (!id) {
+            alert('Session ID is required');
+            return;
+          }
+
+          const response = await fetch(`/sessions/${id}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          });
+
+          const payload = await response.json();
+          appendLog('session.delete', payload);
+          setSessionId('');
+          setQr('Waiting for QR...');
+          setQrImage('');
+          setQrExpires('expires: -');
+          setSessionStatus('session: idle');
+          setSessionLive(false);
+        };
+        const sendMessage = async () => {
+          const authToken = ensureToken();
+          if (!authToken) return;
+
+          const id = ensureSessionId();
+          if (!id) {
+            alert('Session ID is required');
+            return;
+          }
+
+          const to = messageTo.trim();
+          const content = messageContent.trim();
+
+          if (!to || !content) {
+            alert('to and content are required');
+            return;
+          }
+
+          const response = await fetch(`/sessions/${id}/messages`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ to, content }),
+          });
+
+          const payload = await response.json();
+          appendLog('session.sendMessage', payload);
+        };
+
+        const clearLog = () => {
+          setLogEntries([]);
+        };
+
+        useEffect(() => {
+          return () => {
+            if (wsRef.current) {
+              wsRef.current.close();
+            }
+          };
+        }, []);
+
+        return html`
+          <div>
+            <header>
+              <h1>Anna Sessions Lab</h1>
+              <p>
+                Quick UI to start sessions, listen to realtime updates, and fire messages. Events are streamed via
+                WebSocket and filtered by your tenant.
+              </p>
+            </header>
+            <section className="grid">
+              <div className="card">
+                <div className="stack">
+                  <div>
+                    <label>Email</label>
+                    <input value=${email} onInput=${(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+                  </div>
+                  <div>
+                    <label>Password</label>
+                    <input
+                      value=${password}
+                      type="password"
+                      onInput=${(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                    />
+                  </div>
+                  <div>
+                    <label>Access token</label>
+                    <input
+                      value=${token}
+                      onInput=${(e) => setToken(e.target.value)}
+                      placeholder="Bearer token"
+                    />
+                  </div>
+                  <div>
+                    <label>Session ID (optional)</label>
+                    <input
+                      value=${sessionId}
+                      onInput=${(e) => setSessionId(e.target.value)}
+                      placeholder="Leave empty to auto-generate"
+                    />
+                  </div>
+                  <div className="buttons">
+                    <button onClick=${login}>Login</button>
+                    <button onClick=${connectWs}>Connect WS</button>
+                    <button className="secondary" onClick=${disconnectWs}>Disconnect</button>
+                  </div>
+                  <div className="buttons">
+                    <button onClick=${startSession}>Start session</button>
+                    <button className="warn" onClick=${stopSession}>Stop session</button>
+                    <button className="secondary" onClick=${deleteSession}>Delete session</button>
+                  </div>
+                  <div className="status">
+                    <span className=${`pill ${wsLive ? 'live' : ''}`}>${wsStatus}</span>
+                    <span className=${`pill ${sessionLive ? 'live' : ''}`}>${sessionStatus}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card split">
+                <div className="stack">
+                  <div>
+                    <label>QR payload</label>
+                    ${qrImage
+                      ? html`<img className="qr-image" src=${qrImage} alt="QR code" />`
+                      : html`<div className="qr-box">${qr}</div>`}
+                    <div className="status">
+                      <span className="pill">${qrExpires}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label>Send message</label>
+                    <input
+                      value=${messageTo}
+                      onInput=${(e) => setMessageTo(e.target.value)}
+                      placeholder="to (jid)"
+                    />
+                  </div>
+                  <div>
+                    <textarea
+                      value=${messageContent}
+                      onInput=${(e) => setMessageContent(e.target.value)}
+                      placeholder="message content"
+                    ></textarea>
+                  </div>
+                  <div className="buttons">
+                    <button onClick=${sendMessage}>Send message</button>
+                    <button className="secondary" onClick=${clearLog}>Clear log</button>
+                  </div>
+                </div>
+                <div>
+                  <label>Event stream</label>
+                  <div className="log">
+                    ${logEntries.map(
+                      (entry) => html`
+                        <div className="log-entry" key=${entry.id}>
+                          <div className="tag">${entry.type}</div>
+                          <div className="muted">${entry.time}</div>
+                          <pre>${JSON.stringify(entry.payload, null, 2)}</pre>
+                        </div>
+                      `
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+        `;
       };
 
-      const login = async () => {
-        const email = emailInput.value.trim();
-        const password = passwordInput.value;
-
-        if (!email || !password) {
-          alert('Email and password are required');
-          return;
-        }
-
-        localStorage.setItem('sessionLab.email', email);
-
-        const response = await fetch('/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password }),
-        });
-
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          alert(payload.message || 'Login failed');
-          return;
-        }
-
-        if (payload.accessToken) {
-          accessTokenInput.value = payload.accessToken;
-          localStorage.setItem('sessionLab.token', payload.accessToken);
-          appendLog('auth.login', payload);
-          passwordInput.value = '';
-        }
-      };
-
-      const startSession = async () => {
-        const token = ensureToken();
-        if (!token) return;
-
-        const sessionId = ensureSessionId();
-        const response = await fetch('/sessions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: sessionId ? JSON.stringify({ sessionId }) : null,
-        });
-
-        const payload = await response.json();
-        appendLog('session.start', payload);
-        if (payload.sessionId) {
-          sessionIdInput.value = payload.sessionId;
-          localStorage.setItem('sessionLab.sessionId', payload.sessionId);
-        }
-      };
-
-      const stopSession = async () => {
-        const token = ensureToken();
-        if (!token) return;
-
-        const sessionId = ensureSessionId();
-        if (!sessionId) {
-          alert('Session ID is required');
-          return;
-        }
-
-        const response = await fetch(`/sessions/${sessionId}/stop`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ reason: 'manual_stop' }),
-        });
-
-        const payload = await response.json();
-        appendLog('session.stop', payload);
-      };
-
-      const sendMessage = async () => {
-        const token = ensureToken();
-        if (!token) return;
-
-        const sessionId = ensureSessionId();
-        if (!sessionId) {
-          alert('Session ID is required');
-          return;
-        }
-
-        const to = messageToInput.value.trim();
-        const content = messageContentInput.value.trim();
-
-        if (!to || !content) {
-          alert('to and content are required');
-          return;
-        }
-
-        const response = await fetch(`/sessions/${sessionId}/messages`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ to, content }),
-        });
-
-        const payload = await response.json();
-        appendLog('session.sendMessage', payload);
-      };
-
-      document.getElementById('connectWs').addEventListener('click', connectWs);
-      document.getElementById('disconnectWs').addEventListener('click', disconnectWs);
-      document.getElementById('login').addEventListener('click', login);
-      document.getElementById('startSession').addEventListener('click', startSession);
-      document.getElementById('stopSession').addEventListener('click', stopSession);
-      document.getElementById('sendMessage').addEventListener('click', sendMessage);
-      document.getElementById('clearLog').addEventListener('click', () => {
-        eventLog.innerHTML = '';
-      });
-
-      setPill(wsStatus, 'ws: idle', false);
-      setPill(sessionStatus, 'session: idle', false);
+      const root = createRoot(document.getElementById('root'));
+      root.render(html`<${App} />`);
     </script>
   </body>
 </html>

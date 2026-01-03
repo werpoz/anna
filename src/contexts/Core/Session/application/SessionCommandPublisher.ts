@@ -21,7 +21,17 @@ export type SendSessionMessageCommand = {
   messageId?: string;
 };
 
-export type SessionCommand = StartSessionCommand | StopSessionCommand | SendSessionMessageCommand;
+export type DeleteSessionCommand = {
+  type: 'session.delete';
+  commandId: string;
+  sessionId: string;
+};
+
+export type SessionCommand =
+  | StartSessionCommand
+  | StopSessionCommand
+  | SendSessionMessageCommand
+  | DeleteSessionCommand;
 
 export interface SessionCommandPublisher {
   publish(command: SessionCommand): Promise<void>;

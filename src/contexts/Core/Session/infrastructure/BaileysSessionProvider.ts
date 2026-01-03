@@ -11,6 +11,7 @@ import type {
   SendSessionMessageRequest,
 } from '@/contexts/Core/Session/application/SessionProvider';
 import { usePostgresAuthState } from '@/contexts/Core/Session/infrastructure/PostgresBaileysAuthState';
+import { logger } from '@/contexts/Shared/infrastructure/observability/logger';
 
 export type BaileysSessionProviderOptions = {
   pool: Pool;
@@ -28,10 +29,14 @@ type ActiveSession = {
 export class BaileysSessionProvider implements SessionProvider {
   private readonly sessions: Map<string, ActiveSession>;
   private readonly options: BaileysSessionProviderOptions;
+  private readonly reconnectAttempts: Map<string, number>;
+  private readonly reconnectTimers: Map<string, ReturnType<typeof setTimeout>>;
 
   constructor(options: BaileysSessionProviderOptions) {
     this.options = options;
     this.sessions = new Map();
+    this.reconnectAttempts = new Map();
+    this.reconnectTimers = new Map();
   }
 
   async start(request: StartSessionRequest): Promise<void> {
@@ -60,6 +65,7 @@ export class BaileysSessionProvider implements SessionProvider {
       }
 
       if (connection === 'open') {
+        this.clearReconnectState(request.sessionId);
         const phone = socket.user?.id ?? '';
         if (phone) {
           void request.handlers.onConnected(phone, new Date());
@@ -70,6 +76,9 @@ export class BaileysSessionProvider implements SessionProvider {
         const reason = resolveDisconnectReason(lastDisconnect?.error);
         void request.handlers.onDisconnected(reason, new Date());
         this.sessions.delete(request.sessionId);
+        if (shouldReconnect(lastDisconnect?.error)) {
+          this.scheduleReconnect(request);
+        }
       }
     });
 
@@ -86,6 +95,7 @@ export class BaileysSessionProvider implements SessionProvider {
       active.socket.end(new Error('session_closed'));
     } finally {
       this.sessions.delete(sessionId);
+      this.clearReconnectState(sessionId);
     }
   }
 
@@ -96,6 +106,38 @@ export class BaileysSessionProvider implements SessionProvider {
     }
 
     await active.socket.sendMessage(request.to, { text: request.content });
+  }
+
+  private clearReconnectState(sessionId: string): void {
+    const timer = this.reconnectTimers.get(sessionId);
+    if (timer) {
+      clearTimeout(timer);
+      this.reconnectTimers.delete(sessionId);
+    }
+    this.reconnectAttempts.delete(sessionId);
+  }
+
+  private scheduleReconnect(request: StartSessionRequest): void {
+    const current = this.reconnectAttempts.get(request.sessionId) ?? 0;
+    const attempt = current + 1;
+    this.reconnectAttempts.set(request.sessionId, attempt);
+
+    const delayMs = Math.min(1000 * attempt, 15000);
+    const existing = this.reconnectTimers.get(request.sessionId);
+    if (existing) {
+      clearTimeout(existing);
+    }
+
+    const timer = setTimeout(() => {
+      this.reconnectTimers.delete(request.sessionId);
+      void this.start(request);
+    }, delayMs);
+    this.reconnectTimers.set(request.sessionId, timer);
+
+    logger.warn(
+      { sessionId: request.sessionId, attempt, delayMs },
+      'Session reconnect scheduled'
+    );
   }
 }
 
@@ -115,4 +157,17 @@ const resolveDisconnectReason = (error: unknown): string => {
   }
 
   return 'unknown';
+};
+
+const shouldReconnect = (error: unknown): boolean => {
+  const statusCode = (error as { output?: { statusCode?: number } })?.output?.statusCode;
+  if (statusCode === DisconnectReason.loggedOut) {
+    return false;
+  }
+
+  if (error instanceof Error && error.message === 'session_closed') {
+    return false;
+  }
+
+  return true;
 };

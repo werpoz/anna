@@ -17,6 +17,10 @@ export class DisconnectSession {
       throw new SessionDoesNotExistError(id);
     }
 
+    if (session.status.value !== 'connected') {
+      return;
+    }
+
     session.disconnect(reason, disconnectedAt);
     await this.repository.save(session);
     await this.eventBus.publish(session.pullDomainEvents());

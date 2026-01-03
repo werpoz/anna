@@ -105,4 +105,8 @@ export class PostgresSessionRepository implements SessionRepository {
 
     return result.rows.map(mapRowToSession);
   }
+
+  async delete(id: SessionId): Promise<void> {
+    await this.pool.query('DELETE FROM sessions WHERE id = $1', [id.value]);
+  }
 }

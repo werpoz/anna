@@ -29,4 +29,8 @@ export class InMemorySessionRepository implements SessionRepository {
     }
     return items;
   }
+
+  async delete(id: SessionId): Promise<void> {
+    this.sessions.delete(id.value);
+  }
 }

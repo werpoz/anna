@@ -215,6 +215,12 @@ curl -X POST http://localhost:3000/sessions/<sessionId>/stop \
   -d '{"reason":"logout"}'
 ```
 
+Eliminar sesion (borra auth state en Postgres):
+```bash
+curl -X DELETE http://localhost:3000/sessions/<sessionId> \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
 Enviar mensaje:
 ```bash
 curl -X POST http://localhost:3000/sessions/<sessionId>/messages \
