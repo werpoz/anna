@@ -37,6 +37,7 @@ Entidades clave (MVP):
 
 Eventos clave (MVP):
 - `session.created`, `session.qr.updated`, `session.status.connected`, `session.status.disconnected`
+- `session.history.sync`, `session.messages.upsert`
 - `message.sent`, `message.received`, `message.failed`
 
 ## Eventos y Outbox
@@ -65,6 +66,7 @@ Notas MVP:
 
 4) **Eventos de dominio**:
    - El agregado emite `session.created`, `session.qr.updated`, `session.status.connected`, `session.status.disconnected`.
+   - El worker de sesiones tambien emite `session.history.sync` y `session.messages.upsert` a partir de eventos de Baileys.
    - Se guardan en outbox y se publican a `domain-events`.
 
 5) **Realtime WebSocket**:

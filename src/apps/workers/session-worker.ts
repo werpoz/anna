@@ -22,6 +22,7 @@ import { DeleteSession } from '@/contexts/Core/Session/application/use-cases/Del
 import { PostgresSessionAuthRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionAuthRepository';
 import { PublishSessionHistorySync } from '@/contexts/Core/Session/application/use-cases/PublishSessionHistorySync';
 import { PublishSessionMessagesUpsert } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesUpsert';
+import { PostgresSessionMessageRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageRepository';
 
 initTelemetry(`${env.otelServiceName}-sessions`);
 
@@ -63,7 +64,13 @@ const startSession = new StartSession(
 const stopSession = new StopSession(sessionRepository, eventBus, sessionProvider);
 const sendSessionMessage = new SendSessionMessage(sessionRepository, sessionProvider);
 const sessionAuthRepository = new PostgresSessionAuthRepository(pool);
-const deleteSession = new DeleteSession(sessionRepository, sessionAuthRepository, sessionProvider);
+const sessionMessageRepository = new PostgresSessionMessageRepository(pool);
+const deleteSession = new DeleteSession(
+  sessionRepository,
+  sessionAuthRepository,
+  sessionMessageRepository,
+  sessionProvider
+);
 const sessionService = new SessionService(startSession, stopSession, sendSessionMessage, deleteSession);
 
 const consumer = new RedisSessionCommandConsumer(redis, sessionService, {

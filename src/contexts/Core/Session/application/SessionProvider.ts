@@ -14,6 +14,7 @@ export type SessionMessageSummary = {
   timestamp?: number;
   type?: string;
   text?: string;
+  raw?: Record<string, unknown>;
 };
 
 export type SessionHistorySyncPayload = {

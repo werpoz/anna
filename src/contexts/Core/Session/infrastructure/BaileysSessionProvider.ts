@@ -1,5 +1,6 @@
 import makeWASocket, {
   Browsers,
+  BufferJSON,
   DisconnectReason,
   extractMessageContent,
   getContentType,
@@ -213,6 +214,7 @@ const buildMessageSummary = (message: proto.IWebMessageInfo): SessionMessageSumm
     content?.videoMessage?.caption ??
     content?.documentMessage?.caption ??
     undefined;
+  const raw = JSON.parse(JSON.stringify(message, BufferJSON.replacer)) as Record<string, unknown>;
 
   return {
     id: key.id ?? '',
@@ -222,6 +224,7 @@ const buildMessageSummary = (message: proto.IWebMessageInfo): SessionMessageSumm
     timestamp: message.messageTimestamp ? Number(message.messageTimestamp) : undefined,
     type: contentType ?? undefined,
     text,
+    raw,
   };
 };
 

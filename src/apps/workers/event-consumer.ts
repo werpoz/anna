@@ -15,6 +15,7 @@ import { startMetricsServer } from '@/contexts/Shared/infrastructure/observabili
 import type { DomainEventSubscriber } from '@/contexts/Shared/domain/DomainEventSubscriber';
 import type { DomainEvent } from '@/contexts/Shared/domain/DomainEvent';
 import '@/contexts/Core/User/infrastructure/di/registerUserHandlers';
+import '@/contexts/Core/Session/infrastructure/di/registerSessionHandlers';
 
 if (!container.isRegistered(TOKENS.Logger)) {
   container.registerSingleton(TOKENS.Logger, PinoLogger);

@@ -277,6 +277,8 @@
         const [wsLive, setWsLive] = useState(false);
         const [sessionStatus, setSessionStatus] = useState('session: idle');
         const [sessionLive, setSessionLive] = useState(false);
+        const [historyStatus, setHistoryStatus] = useState('history: idle');
+        const [historyLive, setHistoryLive] = useState(false);
         const [qr, setQr] = useState('Waiting for QR...');
         const [qrImage, setQrImage] = useState('');
         const [qrExpires, setQrExpires] = useState('expires: -');
@@ -379,6 +381,19 @@
               if (data.type === 'session.status.disconnected') {
                 setSessionStatus('session: disconnected');
                 setSessionLive(false);
+              }
+
+              if (data.type === 'session.history.sync') {
+                const payload = data.payload || {};
+                const progress =
+                  typeof payload.progress === 'number' && !Number.isNaN(payload.progress)
+                    ? Math.max(0, Math.min(100, Math.round(payload.progress)))
+                    : null;
+                const isLatest = Boolean(payload.isLatest);
+                const label = progress !== null ? `${progress}%` : 'syncing';
+                const suffix = isLatest ? 'complete' : 'syncing';
+                setHistoryStatus(`history: ${label} (${suffix})`);
+                setHistoryLive(!isLatest);
               }
             } catch (error) {
               appendLog('parse_error', { message: String(error) });
@@ -587,6 +602,7 @@
                   <div className="status">
                     <span className=${`pill ${wsLive ? 'live' : ''}`}>${wsStatus}</span>
                     <span className=${`pill ${sessionLive ? 'live' : ''}`}>${sessionStatus}</span>
+                    <span className=${`pill ${historyLive ? 'live' : ''}`}>${historyStatus}</span>
                   </div>
                 </div>
               </div>

@@ -239,6 +239,12 @@ Eventos esperados:
 - `session.qr.updated`
 - `session.status.connected`
 - `session.status.disconnected`
+- `session.history.sync`
+- `session.messages.upsert`
+
+Notas de historial/mensajes:
+- `session.history.sync` incluye resumen de chats/contacts/mensajes (limitado en tamaño).
+- `session.messages.upsert` incluye un resumen corto de mensajes en tiempo real.
 
 Demo UI:
 - `http://localhost:3000/demo/sessions`
