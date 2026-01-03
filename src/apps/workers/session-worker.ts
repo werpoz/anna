@@ -20,6 +20,8 @@ import { SessionService } from '@/contexts/Core/Session/application/SessionServi
 import { RedisSessionCommandConsumer } from '@/contexts/Core/Session/infrastructure/RedisSessionCommandConsumer';
 import { DeleteSession } from '@/contexts/Core/Session/application/use-cases/DeleteSession';
 import { PostgresSessionAuthRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionAuthRepository';
+import { PublishSessionHistorySync } from '@/contexts/Core/Session/application/use-cases/PublishSessionHistorySync';
+import { PublishSessionMessagesUpsert } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesUpsert';
 
 initTelemetry(`${env.otelServiceName}-sessions`);
 
@@ -46,13 +48,17 @@ const sessionProvider = new BaileysSessionProvider({
 const updateSessionQr = new UpdateSessionQr(sessionRepository, eventBus);
 const connectSession = new ConnectSession(sessionRepository, eventBus);
 const disconnectSession = new DisconnectSession(sessionRepository, eventBus);
+const publishSessionHistorySync = new PublishSessionHistorySync(eventBus);
+const publishSessionMessagesUpsert = new PublishSessionMessagesUpsert(eventBus);
 const startSession = new StartSession(
   sessionRepository,
   eventBus,
   sessionProvider,
   updateSessionQr,
   connectSession,
-  disconnectSession
+  disconnectSession,
+  publishSessionHistorySync,
+  publishSessionMessagesUpsert
 );
 const stopSession = new StopSession(sessionRepository, eventBus, sessionProvider);
 const sendSessionMessage = new SendSessionMessage(sessionRepository, sessionProvider);

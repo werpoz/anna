@@ -2,6 +2,8 @@ import type { Pool } from 'pg';
 import {
   BufferJSON,
   initAuthCreds,
+  makeCacheableSignalKeyStore,
+  proto,
   type AuthenticationState,
   type SignalKeyStore,
 } from 'baileys';
@@ -26,8 +28,21 @@ const serialize = (value: unknown): StoredValue => {
   return JSON.parse(JSON.stringify(value, BufferJSON.replacer));
 };
 
+const normalizeStoredValue = (value: StoredValue): StoredValue => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value) as StoredValue;
+  } catch {
+    return value;
+  }
+};
+
 const deserialize = <T>(value: StoredValue): T => {
-  return JSON.parse(JSON.stringify(value), BufferJSON.reviver) as T;
+  const normalized = normalizeStoredValue(value);
+  return JSON.parse(JSON.stringify(normalized), BufferJSON.reviver) as T;
 };
 
 export const usePostgresAuthState = async (
@@ -39,7 +54,6 @@ export const usePostgresAuthState = async (
     'SELECT creds FROM session_auth_creds WHERE session_id = $1',
     [sessionId]
   );
-
   let creds = storedCreds.rows[0]?.creds;
   if (!creds) {
     creds = serialize(initAuthCreds());
@@ -52,7 +66,7 @@ export const usePostgresAuthState = async (
     );
   }
 
-  const keys: SignalKeyStore = {
+  const store: SignalKeyStore = {
     get: async (type, ids) => {
       if (!ids.length) {
         return {};
@@ -65,7 +79,11 @@ export const usePostgresAuthState = async (
 
       const data: Record<string, unknown> = {};
       for (const row of result.rows) {
-        data[row.key_id] = deserialize(row.value);
+        const value = deserialize(row.value);
+        data[row.key_id] =
+          type === 'app-state-sync-key' && value
+            ? proto.Message.AppStateSyncKeyData.fromObject(value as Record<string, unknown>)
+            : value;
       }
 
       return data as any;
@@ -110,7 +128,7 @@ export const usePostgresAuthState = async (
 
   const state: AuthenticationState = {
     creds: deserialize(creds),
-    keys,
+    keys: makeCacheableSignalKeyStore(store),
   };
 
   const saveCreds = async (): Promise<void> => {

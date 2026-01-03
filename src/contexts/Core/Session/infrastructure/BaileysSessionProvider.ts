@@ -1,12 +1,18 @@
 import makeWASocket, {
   Browsers,
   DisconnectReason,
+  extractMessageContent,
+  getContentType,
+  proto,
   type WASocket,
 } from 'baileys';
 import type { Pool } from 'pg';
 import type {
   SessionProvider,
   SessionProviderHandlers,
+  SessionHistorySyncPayload,
+  SessionMessageSummary,
+  SessionMessagesUpsertPayload,
   StartSessionRequest,
   SendSessionMessageRequest,
 } from '@/contexts/Core/Session/application/SessionProvider';
@@ -25,6 +31,9 @@ type ActiveSession = {
   socket: WASocket;
   handlers: SessionProviderHandlers;
 };
+
+const MAX_HISTORY_MESSAGES = 200;
+const MAX_UPSERT_MESSAGES = 50;
 
 export class BaileysSessionProvider implements SessionProvider {
   private readonly sessions: Map<string, ActiveSession>;
@@ -80,6 +89,44 @@ export class BaileysSessionProvider implements SessionProvider {
           this.scheduleReconnect(request);
         }
       }
+    });
+
+    socket.ev.on('messaging-history.set', (payload) => {
+      if (!request.handlers.onHistorySync) {
+        return;
+      }
+
+      const messages = payload.messages ?? [];
+      const summaries = messages.slice(0, MAX_HISTORY_MESSAGES).map(buildMessageSummary);
+      const syncPayload: SessionHistorySyncPayload = {
+        syncType: resolveHistorySyncType(payload.syncType),
+        progress: payload.progress ?? null,
+        isLatest: payload.isLatest,
+        chatsCount: payload.chats?.length ?? 0,
+        contactsCount: payload.contacts?.length ?? 0,
+        messagesCount: messages.length,
+        messagesTruncated: messages.length > summaries.length,
+        messages: summaries,
+      };
+
+      void request.handlers.onHistorySync(syncPayload);
+    });
+
+    socket.ev.on('messages.upsert', (payload) => {
+      if (!request.handlers.onMessagesUpsert) {
+        return;
+      }
+
+      const messages = payload.messages ?? [];
+      const summaries = messages.slice(0, MAX_UPSERT_MESSAGES).map(buildMessageSummary);
+      const upsertPayload: SessionMessagesUpsertPayload = {
+        upsertType: payload.type,
+        requestId: payload.requestId,
+        messagesCount: messages.length,
+        messages: summaries,
+      };
+
+      void request.handlers.onMessagesUpsert(upsertPayload);
     });
 
     this.sessions.set(request.sessionId, { socket, handlers: request.handlers });
@@ -140,6 +187,43 @@ export class BaileysSessionProvider implements SessionProvider {
     );
   }
 }
+
+const resolveHistorySyncType = (
+  syncType: proto.HistorySync.HistorySyncType | null | undefined
+): string | null => {
+  if (syncType === null || syncType === undefined) {
+    return null;
+  }
+
+  if (typeof syncType === 'number') {
+    return proto.HistorySync.HistorySyncType[syncType] ?? String(syncType);
+  }
+
+  return String(syncType);
+};
+
+const buildMessageSummary = (message: proto.IWebMessageInfo): SessionMessageSummary => {
+  const key = message.key ?? {};
+  const content = extractMessageContent(message.message);
+  const contentType = getContentType(content);
+  const text =
+    content?.conversation ??
+    content?.extendedTextMessage?.text ??
+    content?.imageMessage?.caption ??
+    content?.videoMessage?.caption ??
+    content?.documentMessage?.caption ??
+    undefined;
+
+  return {
+    id: key.id ?? '',
+    remoteJid: key.remoteJid ?? undefined,
+    participant: key.participant ?? undefined,
+    fromMe: key.fromMe ?? false,
+    timestamp: message.messageTimestamp ? Number(message.messageTimestamp) : undefined,
+    type: contentType ?? undefined,
+    text,
+  };
+};
 
 const resolveDisconnectReason = (error: unknown): string => {
   const statusCode = (error as { output?: { statusCode?: number } })?.output?.statusCode;

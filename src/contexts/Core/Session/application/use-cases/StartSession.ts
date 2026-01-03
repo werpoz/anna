@@ -7,6 +7,8 @@ import type { EventBus } from '@/contexts/Shared/domain/EventBus';
 import { UpdateSessionQr } from '@/contexts/Core/Session/application/use-cases/UpdateSessionQr';
 import { ConnectSession } from '@/contexts/Core/Session/application/use-cases/ConnectSession';
 import { DisconnectSession } from '@/contexts/Core/Session/application/use-cases/DisconnectSession';
+import { PublishSessionHistorySync } from '@/contexts/Core/Session/application/use-cases/PublishSessionHistorySync';
+import { PublishSessionMessagesUpsert } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesUpsert';
 
 export class StartSession {
   constructor(
@@ -15,12 +17,15 @@ export class StartSession {
     private readonly provider: SessionProvider,
     private readonly updateSessionQr: UpdateSessionQr,
     private readonly connectSession: ConnectSession,
-    private readonly disconnectSession: DisconnectSession
+    private readonly disconnectSession: DisconnectSession,
+    private readonly publishSessionHistorySync: PublishSessionHistorySync,
+    private readonly publishSessionMessagesUpsert: PublishSessionMessagesUpsert
   ) {}
 
   async execute(sessionId: string, tenantId: string): Promise<void> {
     const id = new SessionId(sessionId);
     const existing = await this.repository.search(id);
+    const resolvedTenantId = existing ? existing.tenantId.value : tenantId;
 
     if (!existing) {
       const tenant = new SessionTenantId(tenantId);
@@ -31,7 +36,7 @@ export class StartSession {
 
     await this.provider.start({
       sessionId,
-      tenantId: existing ? existing.tenantId.value : tenantId,
+      tenantId: resolvedTenantId,
       handlers: {
         onQr: async (qr, expiresAt) => {
           await this.updateSessionQr.execute(sessionId, qr, expiresAt);
@@ -41,6 +46,12 @@ export class StartSession {
         },
         onDisconnected: async (reason, disconnectedAt) => {
           await this.disconnectSession.execute(sessionId, reason, disconnectedAt);
+        },
+        onHistorySync: async (payload) => {
+          await this.publishSessionHistorySync.execute(sessionId, resolvedTenantId, payload);
+        },
+        onMessagesUpsert: async (payload) => {
+          await this.publishSessionMessagesUpsert.execute(sessionId, resolvedTenantId, payload);
         },
       },
     });
