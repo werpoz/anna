@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Anna Sessions Lab</title>
+    <style>
+      :root {
+        --bg: #0b0f1a;
+        --bg-2: #101b2d;
+        --panel: rgba(18, 27, 45, 0.82);
+        --panel-2: rgba(13, 18, 30, 0.92);
+        --ink: #e6edf5;
+        --muted: #97a3b6;
+        --accent: #00d4a6;
+        --accent-2: #ff8a3d;
+        --stroke: rgba(255, 255, 255, 0.08);
+        --glow: rgba(0, 212, 166, 0.25);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "Avenir", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: radial-gradient(circle at 10% 20%, rgba(0, 212, 166, 0.12), transparent 40%),
+          radial-gradient(circle at 90% 0%, rgba(255, 138, 61, 0.2), transparent 35%),
+          linear-gradient(130deg, var(--bg), var(--bg-2));
+        min-height: 100vh;
+      }
+
+      header {
+        padding: 32px 8vw 16px;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        font-weight: 700;
+        font-size: clamp(28px, 4vw, 42px);
+        letter-spacing: -0.02em;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        max-width: 760px;
+      }
+
+      .grid {
+        display: grid;
+        gap: 20px;
+        padding: 24px 8vw 48px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--stroke);
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 20px 40px rgba(5, 8, 18, 0.4);
+        backdrop-filter: blur(14px);
+        animation: floatIn 0.6s ease forwards;
+        opacity: 0;
+        transform: translateY(12px);
+      }
+
+      .card:nth-child(2) {
+        animation-delay: 0.08s;
+      }
+
+      .card:nth-child(3) {
+        animation-delay: 0.16s;
+      }
+
+      @keyframes floatIn {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 6px;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--stroke);
+        background: var(--panel-2);
+        color: var(--ink);
+        font-size: 14px;
+      }
+
+      textarea {
+        min-height: 72px;
+        resize: vertical;
+      }
+
+      .stack {
+        display: grid;
+        gap: 12px;
+      }
+
+      .buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      button {
+        border: none;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #04130d;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 12px 24px var(--glow);
+      }
+
+      button.secondary {
+        background: transparent;
+        border: 1px solid var(--stroke);
+        color: var(--ink);
+        box-shadow: none;
+      }
+
+      button.warn {
+        background: var(--accent-2);
+        color: #2b1300;
+        box-shadow: 0 12px 24px rgba(255, 138, 61, 0.3);
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 8px;
+        font-size: 14px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--stroke);
+        background: rgba(12, 18, 30, 0.6);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .pill.live {
+        color: var(--accent);
+        border-color: rgba(0, 212, 166, 0.4);
+      }
+
+      .qr-box {
+        border: 1px dashed rgba(255, 255, 255, 0.18);
+        padding: 14px;
+        border-radius: 12px;
+        font-family: "JetBrains Mono", "Fira Code", monospace;
+        font-size: 12px;
+        color: var(--muted);
+        min-height: 120px;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+
+      .log {
+        background: rgba(7, 10, 18, 0.9);
+        border-radius: 12px;
+        padding: 12px;
+        max-height: 360px;
+        overflow: auto;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        font-family: "JetBrains Mono", "Fira Code", monospace;
+        font-size: 12px;
+      }
+
+      .log-entry {
+        padding: 10px;
+        border-radius: 10px;
+        background: rgba(15, 20, 35, 0.6);
+        margin-bottom: 10px;
+      }
+
+      .log-entry:last-child {
+        margin-bottom: 0;
+      }
+
+      .tag {
+        display: inline-block;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--accent);
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .split {
+        display: grid;
+        gap: 16px;
+      }
+
+      @media (min-width: 920px) {
+        .split {
+          grid-template-columns: 1.1fr 0.9fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Anna Sessions Lab</h1>
+      <p>Quick UI to start sessions, listen to realtime updates, and fire messages. Events are streamed via WebSocket and filtered by your tenant.</p>
+    </header>
+
+    <section class="grid">
+      <div class="card">
+        <div class="stack">
+          <div>
+            <label>Email</label>
+            <input id="email" placeholder="you@example.com" />
+          </div>
+          <div>
+            <label>Password</label>
+            <input id="password" type="password" placeholder="••••••••" />
+          </div>
+          <div>
+            <label>Access token</label>
+            <input id="accessToken" placeholder="Bearer token" />
+          </div>
+          <div>
+            <label>Session ID (optional)</label>
+            <input id="sessionId" placeholder="Leave empty to auto-generate" />
+          </div>
+          <div class="buttons">
+            <button id="login">Login</button>
+            <button id="connectWs">Connect WS</button>
+            <button id="disconnectWs" class="secondary">Disconnect</button>
+          </div>
+          <div class="buttons">
+            <button id="startSession">Start session</button>
+            <button id="stopSession" class="warn">Stop session</button>
+          </div>
+          <div class="status">
+            <span class="pill" id="wsStatus">ws: idle</span>
+            <span class="pill" id="sessionStatus">session: idle</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card split">
+        <div class="stack">
+          <div>
+            <label>QR payload</label>
+            <div class="qr-box" id="qrBox">Waiting for QR...</div>
+            <div class="status">
+              <span class="pill" id="qrExpiry">expires: -</span>
+            </div>
+          </div>
+          <div>
+            <label>Send message</label>
+            <input id="messageTo" placeholder="to (jid)" />
+          </div>
+          <div>
+            <textarea id="messageContent" placeholder="message content"></textarea>
+          </div>
+          <div class="buttons">
+            <button id="sendMessage">Send message</button>
+            <button id="clearLog" class="secondary">Clear log</button>
+          </div>
+        </div>
+        <div>
+          <label>Event stream</label>
+          <div class="log" id="eventLog"></div>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      const accessTokenInput = document.getElementById('accessToken');
+      const emailInput = document.getElementById('email');
+      const passwordInput = document.getElementById('password');
+      const sessionIdInput = document.getElementById('sessionId');
+      const wsStatus = document.getElementById('wsStatus');
+      const sessionStatus = document.getElementById('sessionStatus');
+      const qrBox = document.getElementById('qrBox');
+      const qrExpiry = document.getElementById('qrExpiry');
+      const eventLog = document.getElementById('eventLog');
+      const messageToInput = document.getElementById('messageTo');
+      const messageContentInput = document.getElementById('messageContent');
+
+      const storedToken = localStorage.getItem('sessionLab.token');
+      if (storedToken) {
+        accessTokenInput.value = storedToken;
+      }
+
+      const storedEmail = localStorage.getItem('sessionLab.email');
+      if (storedEmail) {
+        emailInput.value = storedEmail;
+      }
+
+      const storedSessionId = localStorage.getItem('sessionLab.sessionId');
+      if (storedSessionId) {
+        sessionIdInput.value = storedSessionId;
+      }
+
+      let ws = null;
+
+      const setPill = (pill, text, live) => {
+        pill.textContent = text;
+        pill.classList.toggle('live', Boolean(live));
+      };
+
+      const appendLog = (type, payload) => {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        const time = new Date().toLocaleTimeString();
+        entry.innerHTML = `<div class="tag">${type}</div><div class="muted">${time}</div><pre>${JSON.stringify(payload, null, 2)}</pre>`;
+        eventLog.prepend(entry);
+      };
+
+      const ensureToken = () => {
+        const token = accessTokenInput.value.trim();
+        if (!token) {
+          alert('Access token is required');
+          return null;
+        }
+        localStorage.setItem('sessionLab.token', token);
+        return token;
+      };
+
+      const ensureSessionId = () => {
+        const sessionId = sessionIdInput.value.trim();
+        if (!sessionId) {
+          return null;
+        }
+        localStorage.setItem('sessionLab.sessionId', sessionId);
+        return sessionId;
+      };
+
+      const connectWs = () => {
+        const token = ensureToken();
+        if (!token) return;
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          return;
+        }
+
+        const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = `${protocol}://${location.host}/ws/sessions?accessToken=${encodeURIComponent(token)}`;
+        ws = new WebSocket(wsUrl);
+
+        ws.addEventListener('open', () => {
+          setPill(wsStatus, 'ws: connected', true);
+        });
+
+        ws.addEventListener('close', () => {
+          setPill(wsStatus, 'ws: closed', false);
+        });
+
+        ws.addEventListener('error', () => {
+          setPill(wsStatus, 'ws: error', false);
+        });
+
+        ws.addEventListener('message', (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            appendLog(data.type || 'event', data);
+
+            if (data.type === 'session.qr.updated') {
+              qrBox.textContent = data.payload.qr;
+              qrExpiry.textContent = `expires: ${data.payload.expiresAt}`;
+              setPill(sessionStatus, 'session: pending_qr', true);
+            }
+
+            if (data.type === 'session.status.connected') {
+              setPill(sessionStatus, 'session: connected', true);
+            }
+
+            if (data.type === 'session.status.disconnected') {
+              setPill(sessionStatus, 'session: disconnected', false);
+            }
+          } catch (error) {
+            appendLog('parse_error', { message: String(error) });
+          }
+        });
+      };
+
+      const disconnectWs = () => {
+        if (ws) {
+          ws.close();
+        }
+      };
+
+      const login = async () => {
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+
+        if (!email || !password) {
+          alert('Email and password are required');
+          return;
+        }
+
+        localStorage.setItem('sessionLab.email', email);
+
+        const response = await fetch('/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          alert(payload.message || 'Login failed');
+          return;
+        }
+
+        if (payload.accessToken) {
+          accessTokenInput.value = payload.accessToken;
+          localStorage.setItem('sessionLab.token', payload.accessToken);
+          appendLog('auth.login', payload);
+          passwordInput.value = '';
+        }
+      };
+
+      const startSession = async () => {
+        const token = ensureToken();
+        if (!token) return;
+
+        const sessionId = ensureSessionId();
+        const response = await fetch('/sessions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: sessionId ? JSON.stringify({ sessionId }) : null,
+        });
+
+        const payload = await response.json();
+        appendLog('session.start', payload);
+        if (payload.sessionId) {
+          sessionIdInput.value = payload.sessionId;
+          localStorage.setItem('sessionLab.sessionId', payload.sessionId);
+        }
+      };
+
+      const stopSession = async () => {
+        const token = ensureToken();
+        if (!token) return;
+
+        const sessionId = ensureSessionId();
+        if (!sessionId) {
+          alert('Session ID is required');
+          return;
+        }
+
+        const response = await fetch(`/sessions/${sessionId}/stop`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ reason: 'manual_stop' }),
+        });
+
+        const payload = await response.json();
+        appendLog('session.stop', payload);
+      };
+
+      const sendMessage = async () => {
+        const token = ensureToken();
+        if (!token) return;
+
+        const sessionId = ensureSessionId();
+        if (!sessionId) {
+          alert('Session ID is required');
+          return;
+        }
+
+        const to = messageToInput.value.trim();
+        const content = messageContentInput.value.trim();
+
+        if (!to || !content) {
+          alert('to and content are required');
+          return;
+        }
+
+        const response = await fetch(`/sessions/${sessionId}/messages`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ to, content }),
+        });
+
+        const payload = await response.json();
+        appendLog('session.sendMessage', payload);
+      };
+
+      document.getElementById('connectWs').addEventListener('click', connectWs);
+      document.getElementById('disconnectWs').addEventListener('click', disconnectWs);
+      document.getElementById('login').addEventListener('click', login);
+      document.getElementById('startSession').addEventListener('click', startSession);
+      document.getElementById('stopSession').addEventListener('click', stopSession);
+      document.getElementById('sendMessage').addEventListener('click', sendMessage);
+      document.getElementById('clearLog').addEventListener('click', () => {
+        eventLog.innerHTML = '';
+      });
+
+      setPill(wsStatus, 'ws: idle', false);
+      setPill(sessionStatus, 'session: idle', false);
+    </script>
+  </body>
+</html>

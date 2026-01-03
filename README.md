@@ -234,6 +234,9 @@ Eventos esperados:
 - `session.status.connected`
 - `session.status.disconnected`
 
+Demo UI:
+- `http://localhost:3000/demo/sessions`
+
 ## Flujo de login (registro -> verificacion -> acceso)
 1) Registrar usuario (crea token de verificacion).
 2) Verificar cuenta (codigo o token):
