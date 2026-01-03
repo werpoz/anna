@@ -63,3 +63,26 @@ Content-Type: application/json
   "token": "<token>",
   "newPassword": "NewPassword123!"
 }
+
+### Hono - start session (async)
+POST http://localhost:3000/sessions
+Authorization: Bearer <access_token>
+
+### Hono - stop session (async)
+POST http://localhost:3000/sessions/<session_id>/stop
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "reason": "logout"
+}
+
+### Hono - send session message (async)
+POST http://localhost:3000/sessions/<session_id>/messages
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "to": "<jid>",
+  "content": "Hola!"
+}

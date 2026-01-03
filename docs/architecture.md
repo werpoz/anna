@@ -12,6 +12,7 @@ La app sigue un enfoque DDD ligero con capas separadas y eventos de dominio. El 
 ## Contextos
 - **Core/User**: registro, verificación, reset de password, estados de usuario.
 - **Core/Auth**: login, refresh, logout, emisión de tokens y rotación.
+- **Core/Session**: sesiones de WhatsApp (Baileys), QR, estado y reconnect.
 - **Shared**: buses, outbox, observabilidad, DI, utilidades comunes.
 
 ## MVP de negocio (propuesta)
@@ -48,6 +49,27 @@ Eventos clave (MVP):
 Notas MVP:
 - Los comandos de sesión pueden ir a un stream dedicado (ej. `session-commands`).
 - El worker de sesiones consume comandos y emite eventos al stream principal (`domain-events`).
+
+## Flujo de sesiones (comandos + eventos)
+1) **API (Hono)** publica comandos en `session-commands`:
+   - `POST /sessions` -> `session.start`
+   - `POST /sessions/:id/stop` -> `session.stop`
+   - `POST /sessions/:id/messages` -> `session.sendMessage`
+
+2) **Worker de sesiones** consume comandos:
+   - `RedisSessionCommandConsumer` ejecuta `SessionService`.
+   - `StartSession` crea el agregado y abre Baileys.
+
+3) **Persistencia de auth state**:
+   - Baileys guarda `creds` y `keys` en Postgres (`session_auth_creds`, `session_auth_keys`).
+
+4) **Eventos de dominio**:
+   - El agregado emite `session.created`, `session.qr.updated`, `session.status.connected`, `session.status.disconnected`.
+   - Se guardan en outbox y se publican a `domain-events`.
+
+5) **Realtime WebSocket**:
+   - La API consume `domain-events` y emite a `ws://.../ws/sessions`.
+   - Filtra por `tenantId` y solo envía eventos del usuario autenticado.
 
 ## Observabilidad
 - Logs con `pino`.

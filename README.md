@@ -62,6 +62,16 @@ Defaults (sobrescribibles por env):
 - `EVENTS_BACKOFF_MAX_MS=30000`
 - `EVENTS_CLAIM_IDLE_MS=5000`
 - `EVENTS_CLAIM_INTERVAL_MS=2000`
+- `SESSIONS_QR_TTL_MS=60000`
+- `SESSIONS_PRINT_QR=false`
+- `SESSIONS_MARK_ONLINE=false`
+- `SESSIONS_BROWSER_NAME=Anna`
+- `SESSIONS_COMMAND_STREAM=session-commands`
+- `SESSIONS_COMMAND_GROUP=session-commands-group`
+- `SESSIONS_COMMAND_CONSUMER=session-consumer-<pid>`
+- `SESSIONS_COMMAND_BLOCK_MS=5000`
+- `SESSIONS_COMMAND_BATCH_SIZE=25`
+- `SESSIONS_COMMAND_DLQ_STREAM=session-commands-dlq`
 
 ## Migraciones
 
@@ -79,6 +89,8 @@ Migraciones de dominio:
 ```bash
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0001__users.sql
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0002__refresh_tokens.sql
+docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0003__session_auth.sql
+docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0004__sessions.sql
 ```
 
 Runner de migraciones (usa `DATABASE_URL`):
@@ -102,6 +114,7 @@ bun run db:migrate
 ```bash
 bun run worker:outbox
 bun run worker:events
+bun run worker:sessions
 bun run app:hono
 ```
 
@@ -124,6 +137,7 @@ bun run db:migrate
 - `bun run app:hono`
 - `bun run worker:outbox`
 - `bun run worker:events`
+- `bun run worker:sessions`
 
 ## Endpoints rapidos
 
@@ -183,6 +197,42 @@ curl -X POST http://localhost:3000/auth/password-reset/confirm \
   -H 'Content-Type: application/json' \
   -d '{"email":"ada@example.com","token":"<token>","newPassword":"NewPassword123!"}'
 ```
+
+## Sesiones (WhatsApp)
+Los endpoints de sesiones publican comandos en Redis y el worker de sesiones los procesa. La respuesta es `202` porque el flujo es asincrono.
+
+Crear sesion:
+```bash
+curl -X POST http://localhost:3000/sessions \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
+Detener sesion:
+```bash
+curl -X POST http://localhost:3000/sessions/<sessionId>/stop \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"reason":"logout"}'
+```
+
+Enviar mensaje:
+```bash
+curl -X POST http://localhost:3000/sessions/<sessionId>/messages \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"to":"<jid>","content":"Hola!"}'
+```
+
+WebSocket de eventos (solo sesiones del tenant autenticado):
+```
+ws://localhost:3000/ws/sessions?accessToken=<accessToken>
+```
+
+Eventos esperados:
+- `session.created`
+- `session.qr.updated`
+- `session.status.connected`
+- `session.status.disconnected`
 
 ## Flujo de login (registro -> verificacion -> acceso)
 1) Registrar usuario (crea token de verificacion).

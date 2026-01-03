@@ -52,6 +52,13 @@ export const env = {
   sessionsPrintQr: booleanOrDefault(process.env.SESSIONS_PRINT_QR, false),
   sessionsMarkOnlineOnConnect: booleanOrDefault(process.env.SESSIONS_MARK_ONLINE, false),
   sessionsBrowserName: process.env.SESSIONS_BROWSER_NAME ?? 'Anna',
+  sessionsCommandStream: process.env.SESSIONS_COMMAND_STREAM ?? 'session-commands',
+  sessionsCommandGroup: process.env.SESSIONS_COMMAND_GROUP ?? 'session-commands-group',
+  sessionsCommandConsumer:
+    process.env.SESSIONS_COMMAND_CONSUMER ?? `session-consumer-${process.pid}`,
+  sessionsCommandBlockMs: numberOrDefault(process.env.SESSIONS_COMMAND_BLOCK_MS, 5000),
+  sessionsCommandBatchSize: numberOrDefault(process.env.SESSIONS_COMMAND_BATCH_SIZE, 25),
+  sessionsCommandDlqStream: process.env.SESSIONS_COMMAND_DLQ_STREAM ?? 'session-commands-dlq',
 };
 
 export const envHelpers = {

@@ -45,8 +45,9 @@ describe('bootstrap', () => {
     expect(context.commandBus).toBeDefined();
     expect(context.queryBus).toBeDefined();
     expect(context.authService).toBeDefined();
+    expect(context.sessionCommandPublisher).toBeDefined();
     expect(poolCalls).toHaveLength(1);
-    expect(redisCalls).toHaveLength(1);
+    expect(redisCalls).toHaveLength(2);
     expect(typeof poolCalls[0]?.connectionString).toBe('string');
   });
 });

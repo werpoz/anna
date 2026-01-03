@@ -1,7 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
-import { jwtVerify } from 'jose';
-import { env } from '@/contexts/Shared/infrastructure/config/env';
 import type { AppEnv } from '@/apps/api/types';
+import { verifyAccessToken } from '@/apps/api/http/verifyAccessToken';
 
 const getToken = (authorization: string | undefined): string | null => {
   if (!authorization) {
@@ -17,21 +16,11 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
     return c.json({ message: 'missing access token' }, 401);
   }
 
-  try {
-    const secret = new TextEncoder().encode(env.authJwtSecret);
-    const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
-
-    if (payload.tokenUse !== 'access' || !payload.sub) {
-      return c.json({ message: 'invalid access token' }, 401);
-    }
-
-    c.set('auth', {
-      userId: String(payload.sub),
-      email: typeof payload.email === 'string' ? payload.email : undefined,
-    });
-
-    await next();
-  } catch {
+  const auth = await verifyAccessToken(token);
+  if (!auth) {
     return c.json({ message: 'invalid access token' }, 401);
   }
+
+  c.set('auth', auth);
+  await next();
 };

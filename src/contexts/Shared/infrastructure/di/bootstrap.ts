@@ -32,14 +32,17 @@ import { ResetPassword } from '@/contexts/Core/Auth/application/use-cases/ResetP
 import { JwtAccessTokenSigner } from '@/contexts/Core/Auth/infrastructure/JwtAccessTokenSigner';
 import { CryptoRefreshTokenHasher } from '@/contexts/Core/Auth/infrastructure/CryptoRefreshTokenHasher';
 import { CryptoRefreshTokenGenerator } from '@/contexts/Core/Auth/infrastructure/CryptoRefreshTokenGenerator';
+import { RedisSessionCommandPublisher } from '@/contexts/Core/Session/infrastructure/RedisSessionCommandPublisher';
 import type { UserRepository } from '@/contexts/Core/User/domain/UserRepository';
 import type { RefreshTokenRepository } from '@/contexts/Core/Auth/domain/RefreshTokenRepository';
 import type { EventBus } from '@/contexts/Shared/domain/EventBus';
+import type { SessionCommandPublisher } from '@/contexts/Core/Session/application/SessionCommandPublisher';
 
 export type AppContext = {
   commandBus: InMemoryCommandBus;
   queryBus: InMemoryQueryBus;
   authService: AuthService;
+  sessionCommandPublisher: SessionCommandPublisher;
 };
 
 export const buildAppContext = (): AppContext => {
@@ -111,5 +114,10 @@ export const buildAppContext = (): AppContext => {
     new ResetPassword(userRepository, eventBus)
   );
 
-  return { commandBus, queryBus, authService };
+  const sessionCommandPublisher = new RedisSessionCommandPublisher(
+    new Redis(env.redisUrl),
+    env.sessionsCommandStream
+  );
+
+  return { commandBus, queryBus, authService, sessionCommandPublisher };
 };
