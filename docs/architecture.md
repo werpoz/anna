@@ -27,7 +27,7 @@ Flujo mínimo:
 
 Entidades y persistencia clave:
 - `Session`: estado (`pending_qr`, `connected`, `disconnected`), `phone`, `tenantId`.
-- `session_messages`: historial por chat con `message_id`, `from_me`, `timestamp`, `raw`.
+ - `session_messages`: historial por chat con `message_id`, `from_me`, `timestamp`, `raw`, `status`, `is_edited`, `is_deleted`.
 - `session_chats`: resumen por chat (`lastMessageTs`, `lastMessageText`, `unreadCount`).
 - `session_contacts`: contactos/perfiles por sesion (`name`, `notify`, `imgUrl`, `status`).
 
@@ -36,6 +36,8 @@ Eventos clave:
 - `session.history.sync`, `session.messages.upsert`
 - `session.contacts.upsert`
 - `session.messages.update`
+- `session.messages.edit`
+- `session.messages.delete`
 - `session.presence.update`
 
 ## Eventos y Outbox
@@ -54,6 +56,9 @@ Notas MVP:
    - `POST /sessions` -> `session.start`
    - `POST /sessions/:id/stop` -> `session.stop`
    - `POST /sessions/:id/messages` -> `session.sendMessage`
+   - `POST /chats/:jid/read` -> `session.readMessages`
+   - `PATCH /chats/:jid/messages/:messageId` -> `session.editMessage`
+   - `DELETE /chats/:jid/messages/:messageId` -> `session.deleteMessage`
 
 2) **Worker de sesiones** consume comandos:
    - `RedisSessionCommandConsumer` ejecuta `SessionService`.
@@ -74,6 +79,8 @@ Notas MVP:
 6) **Persistencia de contactos y status**:
    - `session.contacts.upsert` persiste en `session_contacts`.
    - `session.messages.update` actualiza `status` y `status_at` en `session_messages`.
+   - `session.messages.edit` actualiza `text/type` y `edited_at`.
+   - `session.messages.delete` marca `is_deleted` y `deleted_at`.
 
 6) **Realtime WebSocket**:
    - La API consume `domain-events` y emite a `ws://.../ws/sessions`.
@@ -92,6 +99,7 @@ Endpoints actuales relevantes:
 - `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`.
 - `POST /sessions`, `POST /sessions/:id/stop`, `DELETE /sessions/:id`, `POST /sessions/:id/messages`.
 - `GET /chats`, `GET /chats/:jid/messages`, `POST /chats/:jid/messages`.
+- `POST /chats/:jid/read`, `PATCH /chats/:jid/messages/:messageId`, `DELETE /chats/:jid/messages/:messageId`.
 - `GET /contacts`.
 - WebSocket `ws://.../ws/sessions` con eventos del tenant autenticado.
 

@@ -19,12 +19,17 @@ import { SendSessionMessage } from '@/contexts/Core/Session/application/use-case
 import { SessionService } from '@/contexts/Core/Session/application/SessionService';
 import { RedisSessionCommandConsumer } from '@/contexts/Core/Session/infrastructure/RedisSessionCommandConsumer';
 import { DeleteSession } from '@/contexts/Core/Session/application/use-cases/DeleteSession';
+import { ReadSessionMessages } from '@/contexts/Core/Session/application/use-cases/ReadSessionMessages';
+import { EditSessionMessage } from '@/contexts/Core/Session/application/use-cases/EditSessionMessage';
+import { DeleteSessionMessage } from '@/contexts/Core/Session/application/use-cases/DeleteSessionMessage';
 import { PostgresSessionAuthRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionAuthRepository';
 import { PublishSessionHistorySync } from '@/contexts/Core/Session/application/use-cases/PublishSessionHistorySync';
 import { PublishSessionMessagesUpsert } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesUpsert';
 import { PublishSessionContactsUpsert } from '@/contexts/Core/Session/application/use-cases/PublishSessionContactsUpsert';
 import { PublishSessionMessagesUpdate } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesUpdate';
 import { PublishSessionPresenceUpdate } from '@/contexts/Core/Session/application/use-cases/PublishSessionPresenceUpdate';
+import { PublishSessionMessagesEdit } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesEdit';
+import { PublishSessionMessagesDelete } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesDelete';
 import { PostgresSessionMessageRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageRepository';
 import { PostgresSessionChatRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatRepository';
 import { PostgresSessionContactRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionContactRepository';
@@ -59,6 +64,8 @@ const publishSessionMessagesUpsert = new PublishSessionMessagesUpsert(eventBus);
 const publishSessionContactsUpsert = new PublishSessionContactsUpsert(eventBus);
 const publishSessionMessagesUpdate = new PublishSessionMessagesUpdate(eventBus);
 const publishSessionPresenceUpdate = new PublishSessionPresenceUpdate(eventBus);
+const publishSessionMessagesEdit = new PublishSessionMessagesEdit(eventBus);
+const publishSessionMessagesDelete = new PublishSessionMessagesDelete(eventBus);
 const sessionAuthRepository = new PostgresSessionAuthRepository(pool);
 const sessionMessageRepository = new PostgresSessionMessageRepository(pool);
 const startSession = new StartSession(
@@ -72,7 +79,9 @@ const startSession = new StartSession(
   publishSessionMessagesUpsert,
   publishSessionContactsUpsert,
   publishSessionMessagesUpdate,
-  publishSessionPresenceUpdate
+  publishSessionPresenceUpdate,
+  publishSessionMessagesEdit,
+  publishSessionMessagesDelete
 );
 const stopSession = new StopSession(sessionRepository, eventBus, sessionProvider);
 const sendSessionMessage = new SendSessionMessage(
@@ -90,7 +99,30 @@ const deleteSession = new DeleteSession(
   sessionContactRepository,
   sessionProvider
 );
-const sessionService = new SessionService(startSession, stopSession, sendSessionMessage, deleteSession);
+const readSessionMessages = new ReadSessionMessages(
+  sessionRepository,
+  sessionMessageRepository,
+  sessionProvider
+);
+const editSessionMessage = new EditSessionMessage(
+  sessionRepository,
+  sessionMessageRepository,
+  sessionProvider
+);
+const deleteSessionMessage = new DeleteSessionMessage(
+  sessionRepository,
+  sessionMessageRepository,
+  sessionProvider
+);
+const sessionService = new SessionService(
+  startSession,
+  stopSession,
+  sendSessionMessage,
+  deleteSession,
+  readSessionMessages,
+  editSessionMessage,
+  deleteSessionMessage
+);
 
 const consumer = new RedisSessionCommandConsumer(redis, sessionService, {
   stream: env.sessionsCommandStream,

@@ -152,6 +152,28 @@ Content-Type: application/json
   "forwardMessageId": "<message_id>"
 }
 
+### Hono - mark chat messages read
+POST http://localhost:3000/chats/<jid>/read
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "messageIds": ["<message_id>"]
+}
+
+### Hono - edit chat message
+PATCH http://localhost:3000/chats/<jid>/messages/<message_id>
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "content": "Texto editado"
+}
+
+### Hono - delete chat message
+DELETE http://localhost:3000/chats/<jid>/messages/<message_id>
+Authorization: Bearer <access_token>
+
 ### Hono - list contacts
 GET http://localhost:3000/contacts
 Authorization: Bearer <access_token>

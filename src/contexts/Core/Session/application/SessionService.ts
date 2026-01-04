@@ -3,13 +3,19 @@ import { StopSession } from '@/contexts/Core/Session/application/use-cases/StopS
 import type { SendSessionMessageRequest } from '@/contexts/Core/Session/application/SessionProvider';
 import { SendSessionMessage } from '@/contexts/Core/Session/application/use-cases/SendSessionMessage';
 import { DeleteSession } from '@/contexts/Core/Session/application/use-cases/DeleteSession';
+import { ReadSessionMessages } from '@/contexts/Core/Session/application/use-cases/ReadSessionMessages';
+import { EditSessionMessage } from '@/contexts/Core/Session/application/use-cases/EditSessionMessage';
+import { DeleteSessionMessage } from '@/contexts/Core/Session/application/use-cases/DeleteSessionMessage';
 
 export class SessionService {
   constructor(
     private readonly startSession: StartSession,
     private readonly stopSession: StopSession,
     private readonly sendSessionMessage: SendSessionMessage,
-    private readonly deleteSession: DeleteSession
+    private readonly deleteSession: DeleteSession,
+    private readonly readSessionMessages: ReadSessionMessages,
+    private readonly editSessionMessage: EditSessionMessage,
+    private readonly deleteSessionMessage: DeleteSessionMessage
   ) {}
 
   async start(sessionId: string, tenantId: string): Promise<void> {
@@ -26,5 +32,17 @@ export class SessionService {
 
   async delete(sessionId: string): Promise<void> {
     await this.deleteSession.execute(sessionId);
+  }
+
+  async readMessages(sessionId: string, messageIds: string[]): Promise<void> {
+    await this.readSessionMessages.execute(sessionId, messageIds);
+  }
+
+  async editMessage(sessionId: string, messageId: string, content: string): Promise<void> {
+    await this.editSessionMessage.execute(sessionId, messageId, content);
+  }
+
+  async deleteMessage(sessionId: string, messageId: string): Promise<void> {
+    await this.deleteSessionMessage.execute(sessionId, messageId);
   }
 }

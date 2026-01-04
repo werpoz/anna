@@ -12,6 +12,10 @@ export type SessionMessageRecord = {
   raw: Record<string, unknown> | null;
   status: string | null;
   statusAt: Date | null;
+  isEdited: boolean;
+  editedAt: Date | null;
+  isDeleted: boolean;
+  deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -24,9 +28,33 @@ export type SessionMessageStatusRecord = {
   updatedAt: Date;
 };
 
+export type SessionMessageEditRecord = {
+  sessionId: string;
+  messageId: string;
+  type: string | null;
+  text: string | null;
+  editedAt: Date | null;
+  updatedAt: Date;
+};
+
+export type SessionMessageDeleteRecord = {
+  sessionId: string;
+  messageId: string;
+  deletedAt: Date | null;
+  updatedAt: Date;
+};
+
 export interface SessionMessageRepository {
   upsertMany(records: SessionMessageRecord[]): Promise<void>;
   updateStatuses(records: SessionMessageStatusRecord[]): Promise<void>;
+  updateEdits(records: SessionMessageEditRecord[]): Promise<void>;
+  markDeleted(records: SessionMessageDeleteRecord[]): Promise<void>;
+  markDeletedByChat(params: {
+    sessionId: string;
+    chatJid: string;
+    deletedAt: Date | null;
+    updatedAt: Date;
+  }): Promise<void>;
   findRawByMessageId(params: { sessionId: string; messageId: string }): Promise<Record<string, unknown> | null>;
   deleteBySession(sessionId: string): Promise<void>;
   searchByChat(params: {

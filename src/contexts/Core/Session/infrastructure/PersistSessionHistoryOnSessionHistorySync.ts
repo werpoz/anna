@@ -39,6 +39,10 @@ const toRecord = (
     raw: summary.raw ?? null,
     status: summary.status ?? null,
     statusAt: resolveTimestamp(summary.statusAt),
+    isEdited: false,
+    editedAt: null,
+    isDeleted: false,
+    deletedAt: null,
     createdAt: now,
     updatedAt: now,
   };

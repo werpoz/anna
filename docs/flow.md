@@ -17,6 +17,8 @@ Eventos emitidos por tenant:
 - `session.history.sync`
 - `session.messages.upsert`
 - `session.messages.update`
+- `session.messages.edit`
+- `session.messages.delete`
 - `session.contacts.upsert`
 - `session.presence.update`
 
@@ -40,13 +42,210 @@ Resumen de payloads:
 - `session.history.sync`: `{ tenantId, syncType, progress, isLatest, chatsCount, contactsCount, messagesCount, messagesTruncated, messages[] }`
 - `session.messages.upsert`: `{ tenantId, upsertType, requestId, messagesCount, messages[] }`
 - `session.messages.update`: `{ tenantId, updatesCount, updates[] }`
+- `session.messages.edit`: `{ tenantId, editsCount, edits[] }`
+- `session.messages.delete`: `{ tenantId, scope, chatJid?, deletesCount, deletes[] }`
 - `session.contacts.upsert`: `{ tenantId, contactsCount, contactsTruncated, contacts[] }`
 - `session.presence.update`: `{ tenantId, chatJid, updatesCount, updates[] }`
 
 Notas:
 - `messages[]` trae resumen y `raw` opcional si se persistio en DB.
 - `updates[]` suele incluir `messageId`, `status` y `statusAt` (delivered/read/played).
+- `edits[]` incluye `messageId`, `text`, `type`, `editedAt`.
+- `deletes[]` incluye `messageId` y `deletedAt` (scope `message`), o `scope=chat` para limpieza masiva.
 - `presence.update` trae `presence` (composing/available/unavailable/paused) y `lastSeen` cuando aplica.
+
+## Ejemplos de eventos WS (payload real)
+
+session.snapshot:
+```json
+{
+  "type": "session.snapshot",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "eventId": "9c2a5fe8-645e-4f6f-a05f-0a6a0a2f9d3d",
+  "occurredOn": "2026-01-01T00:00:00.000Z",
+  "payload": {
+    "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12",
+    "session": {
+      "id": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+      "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12",
+      "status": "connected",
+      "phone": "51999999999",
+      "qr": null,
+      "qrExpiresAt": null,
+      "connectedAt": "2026-01-01T00:00:00.000Z",
+      "disconnectedAt": null,
+      "disconnectedReason": null,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    }
+  }
+}
+```
+
+session.qr.updated:
+```json
+{
+  "type": "session.qr.updated",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "payload": { "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12", "qr": "<base64>", "expiresAt": "2026-01-01T00:01:00.000Z" }
+}
+```
+
+session.status.connected:
+```json
+{
+  "type": "session.status.connected",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "payload": { "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12", "phone": "51999999999", "connectedAt": "2026-01-01T00:02:00.000Z" }
+}
+```
+
+session.history.sync:
+```json
+{
+  "type": "session.history.sync",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "payload": {
+    "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12",
+    "syncType": "RECENT",
+    "progress": 55,
+    "isLatest": false,
+    "chatsCount": 120,
+    "contactsCount": 300,
+    "messagesCount": 500,
+    "messagesTruncated": true,
+    "messages": [
+      {
+        "id": "msg-1",
+        "remoteJid": "51999999999@s.whatsapp.net",
+        "fromMe": false,
+        "timestamp": 1767220000,
+        "type": "conversation",
+        "text": "Hola"
+      }
+    ]
+  }
+}
+```
+
+session.messages.upsert:
+```json
+{
+  "type": "session.messages.upsert",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "payload": {
+    "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12",
+    "upsertType": "notify",
+    "messagesCount": 1,
+    "messages": [
+      {
+        "id": "msg-2",
+        "remoteJid": "51999999999@s.whatsapp.net",
+        "fromMe": false,
+        "timestamp": 1767220050,
+        "type": "conversation",
+        "text": "Como estas?"
+      }
+    ]
+  }
+}
+```
+
+session.messages.update (status):
+```json
+{
+  "type": "session.messages.update",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "payload": {
+    "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12",
+    "updatesCount": 1,
+    "updates": [
+      { "messageId": "msg-2", "status": "read", "statusAt": 1767220060 }
+    ],
+    "source": "receipt"
+  }
+}
+```
+
+session.messages.edit:
+```json
+{
+  "type": "session.messages.edit",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "payload": {
+    "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12",
+    "editsCount": 1,
+    "edits": [
+      { "messageId": "msg-2", "type": "conversation", "text": "Como estas hoy?", "editedAt": 1767220070 }
+    ]
+  }
+}
+```
+
+session.messages.delete (message):
+```json
+{
+  "type": "session.messages.delete",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "payload": {
+    "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12",
+    "scope": "message",
+    "deletesCount": 1,
+    "deletes": [
+      { "messageId": "msg-2", "deletedAt": 1767220080 }
+    ]
+  }
+}
+```
+
+session.messages.delete (chat):
+```json
+{
+  "type": "session.messages.delete",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "payload": {
+    "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12",
+    "scope": "chat",
+    "chatJid": "51999999999@s.whatsapp.net",
+    "deletesCount": 0,
+    "deletes": []
+  }
+}
+```
+
+session.contacts.upsert:
+```json
+{
+  "type": "session.contacts.upsert",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "payload": {
+    "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12",
+    "contactsCount": 2,
+    "contactsTruncated": false,
+    "contacts": [
+      { "id": "51999999999@s.whatsapp.net", "name": "Ada", "notify": "Ada", "imgUrl": null },
+      { "id": "51888888888@s.whatsapp.net", "notify": "Grace", "imgUrl": null }
+    ],
+    "source": "event"
+  }
+}
+```
+
+session.presence.update:
+```json
+{
+  "type": "session.presence.update",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "payload": {
+    "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12",
+    "chatJid": "51999999999@s.whatsapp.net",
+    "updatesCount": 1,
+    "updates": [
+      { "jid": "51999999999@s.whatsapp.net", "presence": "composing", "lastSeen": null }
+    ]
+  }
+}
+```
 
 ## Endpoints principales
 
@@ -74,12 +273,93 @@ Chats:
 - `GET /chats`
 - `GET /chats/:jid/messages`
 - `POST /chats/:jid/messages`
+- `POST /chats/:jid/read`
+- `PATCH /chats/:jid/messages/:messageId`
+- `DELETE /chats/:jid/messages/:messageId`
 
 Contacts:
 - `GET /contacts`
 
 Metrics:
 - `GET /metrics` (si esta habilitado)
+
+## Ejemplos de endpoints (frontend)
+
+Login:
+```bash
+curl -X POST http://localhost:3000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"ada@example.com","password":"SuperSecure123!"}'
+```
+
+Conectar WS:
+```
+ws://localhost:3000/ws/sessions?accessToken=<token>
+```
+
+Listar chats:
+```bash
+curl http://localhost:3000/chats \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
+Listar mensajes (paginado):
+```bash
+curl "http://localhost:3000/chats/<jid>/messages?limit=50&cursor=<cursor>" \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
+Enviar mensaje:
+```bash
+curl -X POST http://localhost:3000/chats/<jid>/messages \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"Hola!"}'
+```
+
+Reply:
+```bash
+curl -X POST http://localhost:3000/chats/<jid>/messages \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"Respuesta","replyToMessageId":"<messageId>"}'
+```
+
+Forward:
+```bash
+curl -X POST http://localhost:3000/chats/<jid>/messages \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"forwardMessageId":"<messageId>"}'
+```
+
+Marcar como leido:
+```bash
+curl -X POST http://localhost:3000/chats/<jid>/read \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"messageIds":["<messageId>"]}'
+```
+
+Editar:
+```bash
+curl -X PATCH http://localhost:3000/chats/<jid>/messages/<messageId> \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"Texto editado"}'
+```
+
+Borrar:
+```bash
+curl -X DELETE http://localhost:3000/chats/<jid>/messages/<messageId> \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
+Listar contactos:
+```bash
+curl http://localhost:3000/contacts \
+  -H 'Authorization: Bearer <accessToken>'
+```
 
 ## Diagrama de arquitectura (alto nivel)
 ```mermaid
@@ -169,6 +449,9 @@ sequenceDiagram
   Worker-->>Redis: session.messages.update (receipts)
   Redis-->>WS: messages update
   Redis-->>DB: event-consumer actualiza status de session_messages
+  Worker-->>Redis: session.messages.edit/delete
+  Redis-->>WS: messages edit/delete
+  Redis-->>DB: event-consumer actualiza edits/deletes
 ```
 
 ## Flujo de chats, contactos y mensajes (API)
@@ -199,4 +482,18 @@ sequenceDiagram
   Worker->>WA: send message
   Worker-->>Redis: session.messages.upsert
   Redis-->>DB: persist messages/chats
+
+  Client->>API: POST /chats/:jid/read
+  API->>Redis: session.readMessages (command)
+  Worker->>WA: read receipts
+
+  Client->>API: PATCH /chats/:jid/messages/:messageId
+  API->>Redis: session.editMessage (command)
+  Worker->>WA: edit message
+  Worker-->>Redis: session.messages.edit
+
+  Client->>API: DELETE /chats/:jid/messages/:messageId
+  API->>Redis: session.deleteMessage (command)
+  Worker->>WA: delete message
+  Worker-->>Redis: session.messages.delete
 ```

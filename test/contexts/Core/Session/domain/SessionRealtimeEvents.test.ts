@@ -2,6 +2,8 @@ import { describe, expect, it } from 'bun:test';
 import { SessionContactsUpsertDomainEvent } from '@/contexts/Core/Session/domain/events/SessionContactsUpsertDomainEvent';
 import { SessionMessagesUpdateDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesUpdateDomainEvent';
 import { SessionPresenceUpdateDomainEvent } from '@/contexts/Core/Session/domain/events/SessionPresenceUpdateDomainEvent';
+import { SessionMessagesEditDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesEditDomainEvent';
+import { SessionMessagesDeleteDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesDeleteDomainEvent';
 
 describe('Session realtime domain events', () => {
   it('round-trips session contacts upsert', () => {
@@ -80,5 +82,62 @@ describe('Session realtime domain events', () => {
 
     expect(rebuilt.payload.chatJid).toBe('123@g.us');
     expect(rebuilt.payload.updates[0]?.presence).toBe('composing');
+  });
+
+  it('round-trips session messages edit', () => {
+    const event = new SessionMessagesEditDomainEvent({
+      aggregateId: 'session-1',
+      tenantId: 'tenant-1',
+      payload: {
+        editsCount: 1,
+        edits: [
+          {
+            messageId: 'msg-1',
+            type: 'conversation',
+            text: 'editado',
+            editedAt: 1710001000,
+          },
+        ],
+      },
+    });
+
+    const rebuilt = SessionMessagesEditDomainEvent.fromPrimitives({
+      aggregateId: event.aggregateId,
+      eventId: event.eventId,
+      occurredOn: event.occurredOn,
+      attributes: event.toPrimitives(),
+    });
+
+    expect(rebuilt.tenantId).toBe(event.tenantId);
+    expect(rebuilt.payload.edits[0]?.messageId).toBe('msg-1');
+    expect(rebuilt.payload.edits[0]?.text).toBe('editado');
+  });
+
+  it('round-trips session messages delete', () => {
+    const event = new SessionMessagesDeleteDomainEvent({
+      aggregateId: 'session-1',
+      tenantId: 'tenant-1',
+      payload: {
+        scope: 'message',
+        deletesCount: 1,
+        deletes: [
+          {
+            messageId: 'msg-1',
+            deletedAt: 1710002000,
+          },
+        ],
+      },
+    });
+
+    const rebuilt = SessionMessagesDeleteDomainEvent.fromPrimitives({
+      aggregateId: event.aggregateId,
+      eventId: event.eventId,
+      occurredOn: event.occurredOn,
+      attributes: event.toPrimitives(),
+    });
+
+    expect(rebuilt.tenantId).toBe(event.tenantId);
+    expect(rebuilt.payload.scope).toBe('message');
+    expect(rebuilt.payload.deletes[0]?.messageId).toBe('msg-1');
   });
 });

@@ -12,6 +12,8 @@ import { PublishSessionMessagesUpsert } from '@/contexts/Core/Session/applicatio
 import { PublishSessionContactsUpsert } from '@/contexts/Core/Session/application/use-cases/PublishSessionContactsUpsert';
 import { PublishSessionMessagesUpdate } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesUpdate';
 import { PublishSessionPresenceUpdate } from '@/contexts/Core/Session/application/use-cases/PublishSessionPresenceUpdate';
+import { PublishSessionMessagesEdit } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesEdit';
+import { PublishSessionMessagesDelete } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesDelete';
 
 export class StartSession {
   constructor(
@@ -25,7 +27,9 @@ export class StartSession {
     private readonly publishSessionMessagesUpsert: PublishSessionMessagesUpsert,
     private readonly publishSessionContactsUpsert: PublishSessionContactsUpsert,
     private readonly publishSessionMessagesUpdate: PublishSessionMessagesUpdate,
-    private readonly publishSessionPresenceUpdate: PublishSessionPresenceUpdate
+    private readonly publishSessionPresenceUpdate: PublishSessionPresenceUpdate,
+    private readonly publishSessionMessagesEdit: PublishSessionMessagesEdit,
+    private readonly publishSessionMessagesDelete: PublishSessionMessagesDelete
   ) {}
 
   async execute(sessionId: string, tenantId: string): Promise<void> {
@@ -67,6 +71,12 @@ export class StartSession {
         },
         onPresenceUpdate: async (payload) => {
           await this.publishSessionPresenceUpdate.execute(sessionId, resolvedTenantId, payload);
+        },
+        onMessagesEdit: async (payload) => {
+          await this.publishSessionMessagesEdit.execute(sessionId, resolvedTenantId, payload);
+        },
+        onMessagesDelete: async (payload) => {
+          await this.publishSessionMessagesDelete.execute(sessionId, resolvedTenantId, payload);
         },
       },
     });

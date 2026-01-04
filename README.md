@@ -97,6 +97,7 @@ docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0006__session_chats.sql
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0007__session_contacts.sql
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0008__session_message_status.sql
+docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0009__session_message_edits.sql
 ```
 
 Runner de migraciones (usa `DATABASE_URL`):
@@ -274,6 +275,7 @@ curl "http://localhost:3000/chats/<jid>/messages?limit=50" \
   -H 'Authorization: Bearer <accessToken>'
 ```
 Respuesta incluye `status`, `statusAt`, `replyTo` y `forward` cuando aplica.
+Tambien incluye `isEdited`, `editedAt`, `isDeleted`, `deletedAt`.
 
 Enviar mensaje por chat:
 ```bash
@@ -295,6 +297,28 @@ curl -X POST http://localhost:3000/chats/<jid>/messages \
   -H 'Authorization: Bearer <accessToken>' \
   -H 'Content-Type: application/json' \
   -d '{"forwardMessageId":"<messageId>"}'
+```
+
+Marcar mensajes como leidos:
+```bash
+curl -X POST http://localhost:3000/chats/<jid>/read \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"messageIds":["<messageId>"]}'
+```
+
+Editar mensaje:
+```bash
+curl -X PATCH http://localhost:3000/chats/<jid>/messages/<messageId> \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"Texto editado"}'
+```
+
+Borrar mensaje:
+```bash
+curl -X DELETE http://localhost:3000/chats/<jid>/messages/<messageId> \
+  -H 'Authorization: Bearer <accessToken>'
 ```
 
 ## Contactos (backend)
@@ -322,12 +346,16 @@ Eventos esperados:
 - `session.history.sync`
 - `session.messages.upsert`
 - `session.messages.update`
+- `session.messages.edit`
+- `session.messages.delete`
 - `session.contacts.upsert`
 - `session.presence.update`
 
 Notas de historial/mensajes:
 - `session.history.sync` incluye resumen de chats/contacts/mensajes (limitado en tamaño).
 - `session.messages.upsert` incluye un resumen corto de mensajes en tiempo real.
+- `session.messages.edit` actualiza contenido/estado de edicion.
+- `session.messages.delete` indica borrado por mensaje o por chat.
 
 Persistencia:
 - El `event-consumer` persiste `session.history.sync` y `session.messages.upsert` en Postgres.

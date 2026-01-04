@@ -123,6 +123,15 @@ export class RedisSessionCommandConsumer {
           forwardMessageId: command.forwardMessageId,
         });
         return;
+      case 'session.readMessages':
+        await this.sessionService.readMessages(command.sessionId, command.messageIds);
+        return;
+      case 'session.editMessage':
+        await this.sessionService.editMessage(command.sessionId, command.messageId, command.content);
+        return;
+      case 'session.deleteMessage':
+        await this.sessionService.deleteMessage(command.sessionId, command.messageId);
+        return;
       case 'session.delete':
         await this.sessionService.delete(command.sessionId);
         return;

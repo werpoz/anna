@@ -41,6 +41,9 @@ const makeRepositories = (rawByMessageId: Record<string, Record<string, unknown>
   const messageRepository: SessionMessageRepository = {
     async upsertMany() {},
     async updateStatuses() {},
+    async updateEdits() {},
+    async markDeleted() {},
+    async markDeletedByChat() {},
     async deleteBySession() {},
     async searchByChat() {
       return [];
@@ -62,6 +65,9 @@ const makeProvider = () => {
     async sendMessage(request) {
       lastRequest = request;
     },
+    async readMessages() {},
+    async editMessage() {},
+    async deleteMessage() {},
   };
 
   return { provider, getLastRequest: () => lastRequest };

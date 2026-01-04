@@ -23,6 +23,28 @@ export type SendSessionMessageCommand = {
   forwardMessageId?: string;
 };
 
+export type ReadSessionMessagesCommand = {
+  type: 'session.readMessages';
+  commandId: string;
+  sessionId: string;
+  messageIds: string[];
+};
+
+export type EditSessionMessageCommand = {
+  type: 'session.editMessage';
+  commandId: string;
+  sessionId: string;
+  messageId: string;
+  content: string;
+};
+
+export type DeleteSessionMessageCommand = {
+  type: 'session.deleteMessage';
+  commandId: string;
+  sessionId: string;
+  messageId: string;
+};
+
 export type DeleteSessionCommand = {
   type: 'session.delete';
   commandId: string;
@@ -33,6 +55,9 @@ export type SessionCommand =
   | StartSessionCommand
   | StopSessionCommand
   | SendSessionMessageCommand
+  | ReadSessionMessagesCommand
+  | EditSessionMessageCommand
+  | DeleteSessionMessageCommand
   | DeleteSessionCommand;
 
 export interface SessionCommandPublisher {

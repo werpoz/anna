@@ -3,6 +3,8 @@ import type {
   SessionMessageRecord,
   SessionMessageRepository,
   SessionMessageStatusRecord,
+  SessionMessageEditRecord,
+  SessionMessageDeleteRecord,
 } from '@/contexts/Core/Session/domain/SessionMessageRepository';
 
 export class PostgresSessionMessageRepository implements SessionMessageRepository {
@@ -27,6 +29,10 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
       'raw',
       'status',
       'status_at',
+      'is_edited',
+      'edited_at',
+      'is_deleted',
+      'deleted_at',
       'created_at',
       'updated_at',
     ];
@@ -48,6 +54,10 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
         record.raw ? JSON.stringify(record.raw) : null,
         record.status,
         record.statusAt,
+        record.isEdited,
+        record.editedAt,
+        record.isDeleted,
+        record.deletedAt,
         record.createdAt,
         record.updatedAt
       );
@@ -64,11 +74,15 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
          from_me = EXCLUDED.from_me,
          sender_jid = EXCLUDED.sender_jid,
          timestamp = EXCLUDED.timestamp,
-         type = EXCLUDED.type,
-         text = EXCLUDED.text,
-         raw = EXCLUDED.raw,
+         type = CASE WHEN session_messages.is_edited OR session_messages.is_deleted THEN session_messages.type ELSE EXCLUDED.type END,
+         text = CASE WHEN session_messages.is_edited OR session_messages.is_deleted THEN session_messages.text ELSE EXCLUDED.text END,
+         raw = CASE WHEN session_messages.is_edited OR session_messages.is_deleted THEN session_messages.raw ELSE EXCLUDED.raw END,
          status = COALESCE(EXCLUDED.status, session_messages.status),
          status_at = COALESCE(EXCLUDED.status_at, session_messages.status_at),
+         is_edited = session_messages.is_edited OR EXCLUDED.is_edited,
+         edited_at = COALESCE(EXCLUDED.edited_at, session_messages.edited_at),
+         is_deleted = session_messages.is_deleted OR EXCLUDED.is_deleted,
+         deleted_at = COALESCE(EXCLUDED.deleted_at, session_messages.deleted_at),
          updated_at = EXCLUDED.updated_at`,
       values
     );
@@ -104,6 +118,86 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
        WHERE sm.session_id = v.session_id::uuid
          AND sm.message_id = v.message_id`,
       values
+    );
+  }
+
+  async updateEdits(records: SessionMessageEditRecord[]): Promise<void> {
+    if (!records.length) {
+      return;
+    }
+
+    const columns = ['session_id', 'message_id', 'type', 'text', 'edited_at', 'updated_at'];
+    const values: Array<unknown> = [];
+    const placeholders = records.map((record, index) => {
+      const offset = index * columns.length;
+      values.push(
+        record.sessionId,
+        record.messageId,
+        record.type,
+        record.text,
+        record.editedAt,
+        record.updatedAt
+      );
+      const slots = columns.map((_, columnIndex) => `$${offset + columnIndex + 1}`);
+      return `(${slots.join(', ')})`;
+    });
+
+    await this.pool.query(
+      `UPDATE session_messages AS sm
+         SET type = COALESCE(v.type, sm.type),
+             text = COALESCE(v.text, sm.text),
+             is_edited = TRUE,
+             edited_at = COALESCE(v.edited_at, sm.edited_at),
+             updated_at = v.updated_at
+        FROM (VALUES ${placeholders.join(', ')})
+          AS v(session_id, message_id, type, text, edited_at, updated_at)
+       WHERE sm.session_id = v.session_id::uuid
+         AND sm.message_id = v.message_id`,
+      values
+    );
+  }
+
+  async markDeleted(records: SessionMessageDeleteRecord[]): Promise<void> {
+    if (!records.length) {
+      return;
+    }
+
+    const columns = ['session_id', 'message_id', 'deleted_at', 'updated_at'];
+    const values: Array<unknown> = [];
+    const placeholders = records.map((record, index) => {
+      const offset = index * columns.length;
+      values.push(record.sessionId, record.messageId, record.deletedAt, record.updatedAt);
+      const slots = columns.map((_, columnIndex) => `$${offset + columnIndex + 1}`);
+      return `(${slots.join(', ')})`;
+    });
+
+    await this.pool.query(
+      `UPDATE session_messages AS sm
+         SET is_deleted = TRUE,
+             deleted_at = COALESCE(v.deleted_at, sm.deleted_at),
+             updated_at = v.updated_at
+        FROM (VALUES ${placeholders.join(', ')})
+          AS v(session_id, message_id, deleted_at, updated_at)
+       WHERE sm.session_id = v.session_id::uuid
+         AND sm.message_id = v.message_id`,
+      values
+    );
+  }
+
+  async markDeletedByChat(params: {
+    sessionId: string;
+    chatJid: string;
+    deletedAt: Date | null;
+    updatedAt: Date;
+  }): Promise<void> {
+    await this.pool.query(
+      `UPDATE session_messages
+          SET is_deleted = TRUE,
+              deleted_at = COALESCE($3, deleted_at),
+              updated_at = $4
+        WHERE session_id = $1
+          AND chat_jid = $2`,
+      [params.sessionId, params.chatJid, params.deletedAt, params.updatedAt]
     );
   }
 
@@ -145,7 +239,8 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
 
     const result = await this.pool.query(
       `SELECT id, tenant_id, session_id, chat_jid, message_id, from_me, sender_jid, timestamp,
-              type, text, raw, status, status_at, created_at, updated_at
+              type, text, raw, status, status_at, is_edited, edited_at, is_deleted, deleted_at,
+              created_at, updated_at
          FROM session_messages
         WHERE session_id = $1
           AND chat_jid = $2
@@ -169,6 +264,10 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
       raw: row.raw,
       status: row.status,
       statusAt: row.status_at,
+      isEdited: row.is_edited,
+      editedAt: row.edited_at,
+      isDeleted: row.is_deleted,
+      deletedAt: row.deleted_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));

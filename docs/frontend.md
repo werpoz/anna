@@ -19,6 +19,7 @@ Contact:
 
 Message:
 - `id`, `fromMe`, `text`, `timestamp`, `status`, `statusAt`, `senderJid`
+- `isEdited`, `editedAt`, `isDeleted`, `deletedAt`
 - `replyTo`: `{ messageId, participant, type, text } | null`
 - `forward`: `{ isForwarded, forwardingScore } | null`
 
@@ -29,6 +30,8 @@ Message:
 - `session.history.sync` -> progreso de sync (mostrar %).
 - `session.messages.upsert` -> actualizar chat list y mensajes.
 - `session.messages.update` -> actualizar status (delivered/read/played).
+- `session.messages.edit` -> actualizar texto/tipo y flag editado.
+- `session.messages.delete` -> marcar mensajes como borrados.
 - `session.contacts.upsert` -> actualizar contactos.
 - `session.presence.update` -> estado de presencia/typing.
 
@@ -60,6 +63,202 @@ Lista de chats en tiempo real:
 Estados de mensaje:
 - `session.messages.update` trae `status` y `statusAt`.
 - Mapea a iconos: `delivered` (✓), `read` (✓✓ azul), `played` (✓✓ con icono audio).
+
+Lecturas reales:
+- Para marcar mensajes como leidos, usa `POST /chats/:jid/read` con `messageIds`.
+- Los receipts entran por `session.messages.update`.
+
+Edicion y borrado:
+- `session.messages.edit` trae `messageId`, `text`, `type`, `editedAt`.
+- `session.messages.delete` trae `scope` + `deletes[]` o `chatJid` (si se limpia el chat).
+- UI: mostrar etiqueta "editado" si `isEdited=true` y reemplazar contenido si `isDeleted=true`.
+
+## Implementacion frontend (lecturas, edicion, borrado)
+
+Store recomendado (normalizado):
+- `messagesByChat: Map<chatJid, Map<messageId, Message>>`
+- `Message` debe incluir `status/statusAt/isEdited/editedAt/isDeleted/deletedAt`.
+
+Lecturas reales (read receipts):
+- Al entrar al chat o al hacer scroll hasta el final:
+  1) filtra mensajes entrantes `fromMe=false` cuyo `status !== 'read'`.
+  2) llama `POST /chats/:jid/read` con `messageIds`.
+- No marques como leidos mensajes propios (`fromMe=true`).
+
+Ejemplo logico:
+```
+const markChatRead = async (chatJid, messages) => {
+  const unread = messages
+    .filter(m => !m.fromMe && m.status !== 'read')
+    .map(m => m.id)
+  if (!unread.length) return
+  await api.post(`/chats/${chatJid}/read`, { messageIds: unread })
+}
+```
+
+Edicion:
+- Solo habilita editar si `fromMe=true`.
+- Accion: `PATCH /chats/:jid/messages/:messageId` con `{ content }`.
+- Optimista: actualiza `text`, `isEdited=true`, `editedAt=Date.now()`.
+- Reconciliar luego con WS `session.messages.edit`.
+
+Borrado:
+- Accion: `DELETE /chats/:jid/messages/:messageId`.
+- Optimista: `isDeleted=true` y reemplaza contenido por "Mensaje eliminado".
+- Reconciliar con WS `session.messages.delete` (scope `message` o `chat`).
+
+Aplicar eventos WS (pseudo-codigo):
+```
+onWs('session.messages.update', ({ payload }) => {
+  for (u of payload.updates) {
+    const msg = findMessage(u.messageId)
+    if (!msg) continue
+    if (u.status) msg.status = u.status
+    if (u.statusAt) msg.statusAt = new Date(u.statusAt * 1000)
+  }
+})
+
+onWs('session.messages.edit', ({ payload }) => {
+  for (e of payload.edits) {
+    const msg = findMessage(e.messageId)
+    if (!msg) continue
+    if (e.text !== null && e.text !== undefined) msg.text = e.text
+    if (e.type) msg.type = e.type
+    msg.isEdited = true
+    if (e.editedAt) msg.editedAt = new Date(e.editedAt * 1000)
+  }
+})
+
+onWs('session.messages.delete', ({ payload }) => {
+  if (payload.scope === 'chat' && payload.chatJid) {
+    markAllDeleted(payload.chatJid)
+    return
+  }
+  for (d of payload.deletes) {
+    const msg = findMessage(d.messageId)
+    if (!msg) continue
+    msg.isDeleted = true
+    msg.text = 'Mensaje eliminado'
+    if (d.deletedAt) msg.deletedAt = new Date(d.deletedAt * 1000)
+  }
+})
+```
+
+## Ejemplos frontend (React + fetch)
+
+Fetch helpers (simplificado):
+```jsx
+const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000'
+
+const apiFetch = async (path, options = {}) => {
+  const res = await fetch(`${apiBase}${path}`, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...(options.headers ?? {}) },
+    ...options,
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+```
+
+Login + refresh automatico:
+```jsx
+const login = async (email, password) => {
+  const data = await apiFetch('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+  return data.accessToken
+}
+
+const refresh = async () => {
+  const data = await apiFetch('/auth/refresh', { method: 'POST' })
+  return data.accessToken
+}
+```
+
+WS con access token:
+```jsx
+const connectWs = (token) => {
+  const ws = new WebSocket(`${apiBase.replace('http', 'ws')}/ws/sessions?accessToken=${token}`)
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data)
+    handleWsEvent(msg)
+  }
+  return ws
+}
+```
+
+Listar chats y mensajes:
+```jsx
+const loadChats = async () => apiFetch('/chats')
+
+const loadChatMessages = async (jid, cursor) => {
+  const params = new URLSearchParams({ limit: '50' })
+  if (cursor) params.set('cursor', cursor)
+  return apiFetch(`/chats/${encodeURIComponent(jid)}/messages?${params}`)
+}
+```
+
+Enviar / reply / forward:
+```jsx
+const sendMessage = async (jid, content) =>
+  apiFetch(`/chats/${encodeURIComponent(jid)}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
+
+const sendReply = async (jid, content, replyToMessageId) =>
+  apiFetch(`/chats/${encodeURIComponent(jid)}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ content, replyToMessageId }),
+  })
+
+const sendForward = async (jid, forwardMessageId) =>
+  apiFetch(`/chats/${encodeURIComponent(jid)}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ forwardMessageId }),
+  })
+```
+
+Marcar como leido / editar / borrar:
+```jsx
+const markRead = async (jid, messageIds) =>
+  apiFetch(`/chats/${encodeURIComponent(jid)}/read`, {
+    method: 'POST',
+    body: JSON.stringify({ messageIds }),
+  })
+
+const editMessage = async (jid, messageId, content) =>
+  apiFetch(`/chats/${encodeURIComponent(jid)}/messages/${messageId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ content }),
+  })
+
+const deleteMessage = async (jid, messageId) =>
+  apiFetch(`/chats/${encodeURIComponent(jid)}/messages/${messageId}`, {
+    method: 'DELETE',
+  })
+```
+
+Merge de WS en store (ejemplo directo):
+```jsx
+const handleWsEvent = (event) => {
+  switch (event.type) {
+    case 'session.messages.update':
+      applyStatusUpdates(event.payload.updates)
+      break
+    case 'session.messages.edit':
+      applyEdits(event.payload.edits)
+      break
+    case 'session.messages.delete':
+      applyDeletes(event.payload)
+      break
+    default:
+      break
+  }
+}
+```
 
 Presencia y typing:
 - `session.presence.update` trae `presence` por participante o chat.
@@ -121,6 +320,7 @@ Modo offline:
 - Auth: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`
 - Sesiones: `POST /sessions` (iniciar QR), `POST /sessions/:id/stop`, `DELETE /sessions/:id`
 - Chats: `GET /chats`, `GET /chats/:jid/messages`, `POST /chats/:jid/messages`
+- Chats (acciones): `POST /chats/:jid/read`, `PATCH /chats/:jid/messages/:messageId`, `DELETE /chats/:jid/messages/:messageId`
 - Contactos: `GET /contacts`
 
 ## UI/UX (MVP texto)
@@ -149,16 +349,14 @@ Fase 2 (texto avanzado):
 - Reply (mostrar quoted message).
 - Forward (flag + contador).
 - Busqueda local en chats/mensajes.
-- Marcado de leido (UI optimista).
+- Marcado de leido (UI optimista + POST /chats/:jid/read).
+- Edicion/borrado (actualizar por WS).
 - Mejoras de rendimiento (memo, virtualization).
 
 Fase 3 (UX avanzada):
 - Multi-sesion (switcher).
 - Settings (perfil, notificaciones).
 - Filtros por tipo de chat (grupos/privados).
-
-## Pendientes backend para estas features
-- Endpoint para marcar lectura (si se decide).
 
 ## Consideraciones tecnicas
 - Mantener cache local (chats, mensajes, contactos) y merge por eventos WS.

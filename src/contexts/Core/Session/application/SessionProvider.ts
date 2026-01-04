@@ -7,6 +7,8 @@ export type SessionProviderHandlers = {
   onContactsUpsert?: (payload: SessionContactsUpsertPayload) => Promise<void> | void;
   onMessagesUpdate?: (payload: SessionMessagesUpdatePayload) => Promise<void> | void;
   onPresenceUpdate?: (payload: SessionPresenceUpdatePayload) => Promise<void> | void;
+  onMessagesEdit?: (payload: SessionMessagesEditPayload) => Promise<void> | void;
+  onMessagesDelete?: (payload: SessionMessagesDeletePayload) => Promise<void> | void;
 };
 
 export type SessionMessageSummary = {
@@ -20,6 +22,13 @@ export type SessionMessageSummary = {
   status?: string;
   statusAt?: number;
   raw?: Record<string, unknown>;
+};
+
+export type SessionMessageKey = {
+  id: string;
+  remoteJid: string;
+  fromMe?: boolean;
+  participant?: string;
 };
 
 export type SessionContactSummary = {
@@ -85,6 +94,36 @@ export type SessionPresenceUpdatePayload = {
   updates: SessionPresenceUpdate[];
 };
 
+export type SessionMessageEditUpdate = {
+  messageId: string;
+  remoteJid?: string;
+  participant?: string;
+  fromMe?: boolean;
+  type?: string | null;
+  text?: string | null;
+  editedAt?: number | null;
+};
+
+export type SessionMessagesEditPayload = {
+  editsCount: number;
+  edits: SessionMessageEditUpdate[];
+};
+
+export type SessionMessageDeleteUpdate = {
+  messageId: string;
+  remoteJid?: string;
+  participant?: string;
+  fromMe?: boolean;
+  deletedAt?: number | null;
+};
+
+export type SessionMessagesDeletePayload = {
+  scope: 'message' | 'chat';
+  chatJid?: string;
+  deletesCount: number;
+  deletes: SessionMessageDeleteUpdate[];
+};
+
 export type StartSessionRequest = {
   sessionId: string;
   tenantId: string;
@@ -102,8 +141,27 @@ export type SendSessionMessageRequest = {
   forwardMessage?: Record<string, unknown> | null;
 };
 
+export type ReadSessionMessagesRequest = {
+  sessionId: string;
+  keys: SessionMessageKey[];
+};
+
+export type EditSessionMessageRequest = {
+  sessionId: string;
+  key: SessionMessageKey;
+  content: string;
+};
+
+export type DeleteSessionMessageRequest = {
+  sessionId: string;
+  key: SessionMessageKey;
+};
+
 export interface SessionProvider {
   start(request: StartSessionRequest): Promise<void>;
   stop(sessionId: string): Promise<void>;
   sendMessage(request: SendSessionMessageRequest): Promise<void>;
+  readMessages(request: ReadSessionMessagesRequest): Promise<void>;
+  editMessage(request: EditSessionMessageRequest): Promise<void>;
+  deleteMessage(request: DeleteSessionMessageRequest): Promise<void>;
 }

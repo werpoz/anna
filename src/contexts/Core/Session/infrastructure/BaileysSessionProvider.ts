@@ -21,8 +21,15 @@ import type {
   SessionMessagesUpdatePayload,
   SessionPresenceUpdatePayload,
   SessionPresenceUpdate,
+  SessionMessagesEditPayload,
+  SessionMessageEditUpdate,
+  SessionMessagesDeletePayload,
+  SessionMessageDeleteUpdate,
   StartSessionRequest,
   SendSessionMessageRequest,
+  ReadSessionMessagesRequest,
+  EditSessionMessageRequest,
+  DeleteSessionMessageRequest,
 } from '@/contexts/Core/Session/application/SessionProvider';
 import { usePostgresAuthState } from '@/contexts/Core/Session/infrastructure/PostgresBaileysAuthState';
 import { logger } from '@/contexts/Shared/infrastructure/observability/logger';
@@ -190,18 +197,30 @@ export class BaileysSessionProvider implements SessionProvider {
       if (!request.handlers.onMessagesUpdate) {
         return;
       }
-      const summaries = updates
+      const statusUpdates = updates
         .map((update) => buildMessageStatusUpdate(update.key, update.update))
         .filter(isStatusUpdate);
-      if (!summaries.length) {
-        return;
+      if (statusUpdates.length) {
+        const payload: SessionMessagesUpdatePayload = {
+          updatesCount: updates.length,
+          updates: statusUpdates,
+          source: 'update',
+        };
+        void request.handlers.onMessagesUpdate(payload);
       }
-      const payload: SessionMessagesUpdatePayload = {
-        updatesCount: updates.length,
-        updates: summaries,
-        source: 'update',
-      };
-      void request.handlers.onMessagesUpdate(payload);
+
+      if (request.handlers.onMessagesEdit) {
+        const edits = updates
+          .map((update) => buildMessageEditUpdate(update.key, update.update))
+          .filter(isEditUpdate);
+        if (edits.length) {
+          const payload: SessionMessagesEditPayload = {
+            editsCount: edits.length,
+            edits,
+          };
+          void request.handlers.onMessagesEdit(payload);
+        }
+      }
     });
 
     socket.ev.on('message-receipt.update', (updates) => {
@@ -220,6 +239,38 @@ export class BaileysSessionProvider implements SessionProvider {
         source: 'receipt',
       };
       void request.handlers.onMessagesUpdate(payload);
+    });
+
+    socket.ev.on('messages.delete', (payload) => {
+      if (!request.handlers.onMessagesDelete) {
+        return;
+      }
+
+      if ('keys' in payload) {
+        const deletes = payload.keys
+          .map((key) => buildMessageDeleteUpdate(key))
+          .filter(isDeleteUpdate);
+        if (!deletes.length) {
+          return;
+        }
+        const deletePayload: SessionMessagesDeletePayload = {
+          scope: 'message',
+          deletesCount: deletes.length,
+          deletes,
+        };
+        void request.handlers.onMessagesDelete(deletePayload);
+        return;
+      }
+
+      if (payload.all && payload.jid) {
+        const deletePayload: SessionMessagesDeletePayload = {
+          scope: 'chat',
+          chatJid: payload.jid,
+          deletesCount: 0,
+          deletes: [],
+        };
+        void request.handlers.onMessagesDelete(deletePayload);
+      }
     });
 
     socket.ev.on('presence.update', (update) => {
@@ -275,6 +326,41 @@ export class BaileysSessionProvider implements SessionProvider {
 
     const options = request.quotedMessage ? { quoted: request.quotedMessage as any } : undefined;
     await active.socket.sendMessage(request.to, { text: request.content }, options);
+  }
+
+  async readMessages(request: ReadSessionMessagesRequest): Promise<void> {
+    const active = this.sessions.get(request.sessionId);
+    if (!active) {
+      throw new Error(`Session <${request.sessionId}> is not active`);
+    }
+
+    const keys = request.keys.map(toBaileysKey);
+    await active.socket.readMessages(keys);
+  }
+
+  async editMessage(request: EditSessionMessageRequest): Promise<void> {
+    const active = this.sessions.get(request.sessionId);
+    if (!active) {
+      throw new Error(`Session <${request.sessionId}> is not active`);
+    }
+
+    const key = toBaileysKey(request.key);
+    await active.socket.sendMessage(key.remoteJid ?? request.key.remoteJid, {
+      text: request.content,
+      edit: key,
+    });
+  }
+
+  async deleteMessage(request: DeleteSessionMessageRequest): Promise<void> {
+    const active = this.sessions.get(request.sessionId);
+    if (!active) {
+      throw new Error(`Session <${request.sessionId}> is not active`);
+    }
+
+    const key = toBaileysKey(request.key);
+    await active.socket.sendMessage(key.remoteJid ?? request.key.remoteJid, {
+      delete: key,
+    });
   }
 
   private clearReconnectState(sessionId: string): void {
@@ -469,6 +555,81 @@ const buildPresenceUpdates = (
     }))
     .filter((item) => Boolean(item.jid));
 };
+
+const buildMessageEditUpdate = (
+  key: proto.IMessageKey | null | undefined,
+  update: Partial<proto.IWebMessageInfo> | null | undefined
+): SessionMessageEditUpdate | null => {
+  const messageId = key?.id ?? '';
+  if (!messageId) {
+    return null;
+  }
+
+  const message = update?.message;
+  if (!message) {
+    return null;
+  }
+
+  const content = extractMessageContent(message);
+  const type = content ? getContentType(content) : null;
+  const text =
+    content?.conversation ??
+    content?.extendedTextMessage?.text ??
+    content?.imageMessage?.caption ??
+    content?.videoMessage?.caption ??
+    content?.documentMessage?.caption ??
+    undefined;
+
+  if (typeof text !== 'string' && !type) {
+    return null;
+  }
+
+  return {
+    messageId,
+    remoteJid: key?.remoteJid ?? undefined,
+    participant: key?.participant ?? undefined,
+    fromMe: key?.fromMe ?? undefined,
+    type: type ?? null,
+    text: text ?? null,
+    editedAt: resolveTimestampSeconds(update?.messageTimestamp) ?? Math.floor(Date.now() / 1000),
+  };
+};
+
+const buildMessageDeleteUpdate = (
+  key: proto.IMessageKey | null | undefined
+): SessionMessageDeleteUpdate | null => {
+  const messageId = key?.id ?? '';
+  const remoteJid = key?.remoteJid ?? '';
+  if (!messageId || !remoteJid) {
+    return null;
+  }
+
+  return {
+    messageId,
+    remoteJid,
+    participant: key?.participant ?? undefined,
+    fromMe: key?.fromMe ?? undefined,
+    deletedAt: Math.floor(Date.now() / 1000),
+  };
+};
+
+const toBaileysKey = (key: {
+  id: string;
+  remoteJid: string;
+  fromMe?: boolean;
+  participant?: string;
+}): proto.IMessageKey => ({
+  id: key.id,
+  remoteJid: key.remoteJid,
+  fromMe: key.fromMe,
+  participant: key.participant,
+});
+
+const isEditUpdate = (value: SessionMessageEditUpdate | null): value is SessionMessageEditUpdate =>
+  Boolean(value);
+
+const isDeleteUpdate = (value: SessionMessageDeleteUpdate | null): value is SessionMessageDeleteUpdate =>
+  Boolean(value);
 
 const resolveDisconnectReason = (error: unknown): string => {
   const statusCode = (error as { output?: { statusCode?: number } })?.output?.statusCode;
