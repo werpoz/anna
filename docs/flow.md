@@ -19,6 +19,32 @@ Eventos emitidos por tenant:
 - `session.messages.update`
 - `session.contacts.upsert`
 
+Formato base:
+```json
+{
+  "type": "session.qr.updated",
+  "sessionId": "<uuid>",
+  "eventId": "<uuid>",
+  "occurredOn": "2026-01-01T00:00:00.000Z",
+  "payload": {}
+}
+```
+
+Resumen de payloads:
+- `session.snapshot`: `{ tenantId, session: SessionPrimitives | null }`
+- `session.created`: `{ tenantId, id, status, createdAt }`
+- `session.qr.updated`: `{ tenantId, qr, expiresAt }`
+- `session.status.connected`: `{ tenantId, phone, connectedAt }`
+- `session.status.disconnected`: `{ tenantId, reason, disconnectedAt }`
+- `session.history.sync`: `{ tenantId, syncType, progress, isLatest, chatsCount, contactsCount, messagesCount, messagesTruncated, messages[] }`
+- `session.messages.upsert`: `{ tenantId, upsertType, requestId, messagesCount, messages[] }`
+- `session.messages.update`: `{ tenantId, updatesCount, updates[] }`
+- `session.contacts.upsert`: `{ tenantId, contactsCount, contactsTruncated, contacts[] }`
+
+Notas:
+- `messages[]` trae resumen y `raw` opcional si se persistio en DB.
+- `updates[]` suele incluir `messageId`, `status` y `statusAt` (delivered/read/played).
+
 ## Endpoints principales
 
 Auth:
