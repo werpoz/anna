@@ -133,6 +133,21 @@ export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatContr
       cursor: cursor ?? undefined,
     });
 
+    const messageIds = items.map((item) => item.messageId).filter(Boolean);
+    const reactions = messageIds.length
+      ? await deps.reactionRepository.listByMessageIds({
+          sessionId: resolvedSessionId,
+          messageIds,
+        })
+      : [];
+
+    const reactionsByMessage = reactions.reduce<Record<string, typeof reactions>>((acc, reaction) => {
+      const bucket = acc[reaction.messageId] ?? [];
+      bucket.push(reaction);
+      acc[reaction.messageId] = bucket;
+      return acc;
+    }, {});
+
     const mapped = items.map((item) => ({
       id: item.messageId,
       fromMe: item.fromMe,
@@ -146,6 +161,7 @@ export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatContr
       editedAt: item.editedAt?.toISOString() ?? null,
       isDeleted: item.isDeleted,
       deletedAt: item.deletedAt?.toISOString() ?? null,
+      reactions: reactionsByMessage[item.messageId] ?? [],
       replyTo: extractReplyInfo(item.raw),
       forward: extractForwardInfo(item.raw),
       raw: includeRaw ? item.raw : undefined,

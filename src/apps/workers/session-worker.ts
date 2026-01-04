@@ -22,6 +22,7 @@ import { DeleteSession } from '@/contexts/Core/Session/application/use-cases/Del
 import { ReadSessionMessages } from '@/contexts/Core/Session/application/use-cases/ReadSessionMessages';
 import { EditSessionMessage } from '@/contexts/Core/Session/application/use-cases/EditSessionMessage';
 import { DeleteSessionMessage } from '@/contexts/Core/Session/application/use-cases/DeleteSessionMessage';
+import { ReactSessionMessage } from '@/contexts/Core/Session/application/use-cases/ReactSessionMessage';
 import { PostgresSessionAuthRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionAuthRepository';
 import { PublishSessionHistorySync } from '@/contexts/Core/Session/application/use-cases/PublishSessionHistorySync';
 import { PublishSessionMessagesUpsert } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesUpsert';
@@ -30,9 +31,11 @@ import { PublishSessionMessagesUpdate } from '@/contexts/Core/Session/applicatio
 import { PublishSessionPresenceUpdate } from '@/contexts/Core/Session/application/use-cases/PublishSessionPresenceUpdate';
 import { PublishSessionMessagesEdit } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesEdit';
 import { PublishSessionMessagesDelete } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesDelete';
+import { PublishSessionMessagesReaction } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesReaction';
 import { PostgresSessionMessageRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageRepository';
 import { PostgresSessionChatRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatRepository';
 import { PostgresSessionContactRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionContactRepository';
+import { PostgresSessionMessageReactionRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageReactionRepository';
 
 initTelemetry(`${env.otelServiceName}-sessions`);
 
@@ -66,6 +69,7 @@ const publishSessionMessagesUpdate = new PublishSessionMessagesUpdate(eventBus);
 const publishSessionPresenceUpdate = new PublishSessionPresenceUpdate(eventBus);
 const publishSessionMessagesEdit = new PublishSessionMessagesEdit(eventBus);
 const publishSessionMessagesDelete = new PublishSessionMessagesDelete(eventBus);
+const publishSessionMessagesReaction = new PublishSessionMessagesReaction(eventBus);
 const sessionAuthRepository = new PostgresSessionAuthRepository(pool);
 const sessionMessageRepository = new PostgresSessionMessageRepository(pool);
 const startSession = new StartSession(
@@ -81,7 +85,8 @@ const startSession = new StartSession(
   publishSessionMessagesUpdate,
   publishSessionPresenceUpdate,
   publishSessionMessagesEdit,
-  publishSessionMessagesDelete
+  publishSessionMessagesDelete,
+  publishSessionMessagesReaction
 );
 const stopSession = new StopSession(sessionRepository, eventBus, sessionProvider);
 const sendSessionMessage = new SendSessionMessage(
@@ -91,12 +96,14 @@ const sendSessionMessage = new SendSessionMessage(
 );
 const sessionChatRepository = new PostgresSessionChatRepository(pool);
 const sessionContactRepository = new PostgresSessionContactRepository(pool);
+const sessionMessageReactionRepository = new PostgresSessionMessageReactionRepository(pool);
 const deleteSession = new DeleteSession(
   sessionRepository,
   sessionAuthRepository,
   sessionMessageRepository,
   sessionChatRepository,
   sessionContactRepository,
+  sessionMessageReactionRepository,
   sessionProvider
 );
 const readSessionMessages = new ReadSessionMessages(
@@ -114,6 +121,11 @@ const deleteSessionMessage = new DeleteSessionMessage(
   sessionMessageRepository,
   sessionProvider
 );
+const reactSessionMessage = new ReactSessionMessage(
+  sessionRepository,
+  sessionMessageRepository,
+  sessionProvider
+);
 const sessionService = new SessionService(
   startSession,
   stopSession,
@@ -121,7 +133,8 @@ const sessionService = new SessionService(
   deleteSession,
   readSessionMessages,
   editSessionMessage,
-  deleteSessionMessage
+  deleteSessionMessage,
+  reactSessionMessage
 );
 
 const consumer = new RedisSessionCommandConsumer(redis, sessionService, {

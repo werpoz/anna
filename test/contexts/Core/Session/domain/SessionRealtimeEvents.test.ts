@@ -4,6 +4,7 @@ import { SessionMessagesUpdateDomainEvent } from '@/contexts/Core/Session/domain
 import { SessionPresenceUpdateDomainEvent } from '@/contexts/Core/Session/domain/events/SessionPresenceUpdateDomainEvent';
 import { SessionMessagesEditDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesEditDomainEvent';
 import { SessionMessagesDeleteDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesDeleteDomainEvent';
+import { SessionMessagesReactionDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesReactionDomainEvent';
 
 describe('Session realtime domain events', () => {
   it('round-trips session contacts upsert', () => {
@@ -139,5 +140,38 @@ describe('Session realtime domain events', () => {
     expect(rebuilt.tenantId).toBe(event.tenantId);
     expect(rebuilt.payload.scope).toBe('message');
     expect(rebuilt.payload.deletes[0]?.messageId).toBe('msg-1');
+  });
+
+  it('round-trips session messages reaction', () => {
+    const event = new SessionMessagesReactionDomainEvent({
+      aggregateId: 'session-1',
+      tenantId: 'tenant-1',
+      payload: {
+        reactionsCount: 1,
+        reactions: [
+          {
+            messageId: 'msg-1',
+            chatJid: '123@s.whatsapp.net',
+            actorJid: 'user-1@s.whatsapp.net',
+            fromMe: false,
+            emoji: '👍',
+            reactedAt: 1710003000,
+            removed: false,
+          },
+        ],
+        source: 'event',
+      },
+    });
+
+    const rebuilt = SessionMessagesReactionDomainEvent.fromPrimitives({
+      aggregateId: event.aggregateId,
+      eventId: event.eventId,
+      occurredOn: event.occurredOn,
+      attributes: event.toPrimitives(),
+    });
+
+    expect(rebuilt.tenantId).toBe(event.tenantId);
+    expect(rebuilt.payload.reactions[0]?.emoji).toBe('👍');
+    expect(rebuilt.payload.reactions[0]?.messageId).toBe('msg-1');
   });
 });

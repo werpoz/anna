@@ -28,6 +28,7 @@ Flujo mínimo:
 Entidades y persistencia clave:
 - `Session`: estado (`pending_qr`, `connected`, `disconnected`), `phone`, `tenantId`.
  - `session_messages`: historial por chat con `message_id`, `from_me`, `timestamp`, `raw`, `status`, `is_edited`, `is_deleted`.
+ - `session_message_reactions`: reacciones por mensaje (emoji, actor, removed).
 - `session_chats`: resumen por chat (`lastMessageTs`, `lastMessageText`, `unreadCount`).
 - `session_contacts`: contactos/perfiles por sesion (`name`, `notify`, `imgUrl`, `status`).
 
@@ -38,6 +39,7 @@ Eventos clave:
 - `session.messages.update`
 - `session.messages.edit`
 - `session.messages.delete`
+- `session.messages.reaction`
 - `session.presence.update`
 
 ## Eventos y Outbox
@@ -59,6 +61,7 @@ Notas MVP:
    - `POST /chats/:jid/read` -> `session.readMessages`
    - `PATCH /chats/:jid/messages/:messageId` -> `session.editMessage`
    - `DELETE /chats/:jid/messages/:messageId` -> `session.deleteMessage`
+   - `POST /chats/:jid/messages/:messageId/reactions` -> `session.reactMessage`
 
 2) **Worker de sesiones** consume comandos:
    - `RedisSessionCommandConsumer` ejecuta `SessionService`.
@@ -81,6 +84,7 @@ Notas MVP:
    - `session.messages.update` actualiza `status` y `status_at` en `session_messages`.
    - `session.messages.edit` actualiza `text/type` y `edited_at`.
    - `session.messages.delete` marca `is_deleted` y `deleted_at`.
+   - `session.messages.reaction` persiste en `session_message_reactions`.
 
 6) **Realtime WebSocket**:
    - La API consume `domain-events` y emite a `ws://.../ws/sessions`.
@@ -100,6 +104,7 @@ Endpoints actuales relevantes:
 - `POST /sessions`, `POST /sessions/:id/stop`, `DELETE /sessions/:id`, `POST /sessions/:id/messages`.
 - `GET /chats`, `GET /chats/:jid/messages`, `POST /chats/:jid/messages`.
 - `POST /chats/:jid/read`, `PATCH /chats/:jid/messages/:messageId`, `DELETE /chats/:jid/messages/:messageId`.
+- `POST /chats/:jid/messages/:messageId/reactions`.
 - `GET /contacts`.
 - WebSocket `ws://.../ws/sessions` con eventos del tenant autenticado.
 

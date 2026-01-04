@@ -20,6 +20,7 @@ Contact:
 Message:
 - `id`, `fromMe`, `text`, `timestamp`, `status`, `statusAt`, `senderJid`
 - `isEdited`, `editedAt`, `isDeleted`, `deletedAt`
+- `reactions`: `{ emoji, count, actors[] }[]`
 - `replyTo`: `{ messageId, participant, type, text } | null`
 - `forward`: `{ isForwarded, forwardingScore } | null`
 
@@ -32,6 +33,7 @@ Message:
 - `session.messages.update` -> actualizar status (delivered/read/played).
 - `session.messages.edit` -> actualizar texto/tipo y flag editado.
 - `session.messages.delete` -> marcar mensajes como borrados.
+- `session.messages.reaction` -> actualizar reacciones por mensaje.
 - `session.contacts.upsert` -> actualizar contactos.
 - `session.presence.update` -> estado de presencia/typing.
 
@@ -72,6 +74,39 @@ Edicion y borrado:
 - `session.messages.edit` trae `messageId`, `text`, `type`, `editedAt`.
 - `session.messages.delete` trae `scope` + `deletes[]` o `chatJid` (si se limpia el chat).
 - UI: mostrar etiqueta "editado" si `isEdited=true` y reemplazar contenido si `isDeleted=true`.
+
+Reacciones:
+- `POST /chats/:jid/messages/:messageId/reactions` con `{ emoji }` (emoji `null` para quitar).
+- WS `session.messages.reaction` informa cambios (agregar/quitar).
+- UI: agrupa por emoji y muestra contador.
+- Usa `actors[]` para mostrar nombres (con `GET /contacts` como lookup).
+
+Ejemplo de merge en store:
+```
+const applyReactions = (reactions) => {
+  for (const r of reactions) {
+    const msg = findMessage(r.messageId)
+    if (!msg) continue
+    msg.reactions ??= []
+    const entry = msg.reactions.find((item) => item.emoji === r.emoji)
+    if (!r.emoji) continue
+    if (r.removed) {
+      if (entry) {
+        entry.actors = entry.actors.filter((jid) => jid !== r.actorJid)
+        entry.count = entry.actors.length
+      }
+    } else {
+      if (!entry) {
+        msg.reactions.push({ emoji: r.emoji, count: 1, actors: [r.actorJid] })
+      } else if (!entry.actors.includes(r.actorJid)) {
+        entry.actors.push(r.actorJid)
+        entry.count = entry.actors.length
+      }
+    }
+    msg.reactions = msg.reactions.filter((item) => item.count > 0)
+  }
+}
+```
 
 ## Implementacion frontend (lecturas, edicion, borrado)
 
@@ -241,12 +276,24 @@ const deleteMessage = async (jid, messageId) =>
   })
 ```
 
+Reaccionar / quitar reaccion:
+```jsx
+const reactMessage = async (jid, messageId, emoji) =>
+  apiFetch(`/chats/${encodeURIComponent(jid)}/messages/${messageId}/reactions`, {
+    method: 'POST',
+    body: JSON.stringify({ emoji }),
+  })
+```
+
 Merge de WS en store (ejemplo directo):
 ```jsx
 const handleWsEvent = (event) => {
   switch (event.type) {
     case 'session.messages.update':
       applyStatusUpdates(event.payload.updates)
+      break
+    case 'session.messages.reaction':
+      applyReactions(event.payload.reactions)
       break
     case 'session.messages.edit':
       applyEdits(event.payload.edits)
@@ -321,6 +368,7 @@ Modo offline:
 - Sesiones: `POST /sessions` (iniciar QR), `POST /sessions/:id/stop`, `DELETE /sessions/:id`
 - Chats: `GET /chats`, `GET /chats/:jid/messages`, `POST /chats/:jid/messages`
 - Chats (acciones): `POST /chats/:jid/read`, `PATCH /chats/:jid/messages/:messageId`, `DELETE /chats/:jid/messages/:messageId`
+- Reacciones: `POST /chats/:jid/messages/:messageId/reactions`
 - Contactos: `GET /contacts`
 
 ## UI/UX (MVP texto)
@@ -348,6 +396,7 @@ Fase 1 (texto estable, actual):
 Fase 2 (texto avanzado):
 - Reply (mostrar quoted message).
 - Forward (flag + contador).
+- Reacciones (emoji + contador).
 - Busqueda local en chats/mensajes.
 - Marcado de leido (UI optimista + POST /chats/:jid/read).
 - Edicion/borrado (actualizar por WS).

@@ -9,6 +9,7 @@ export type SessionProviderHandlers = {
   onPresenceUpdate?: (payload: SessionPresenceUpdatePayload) => Promise<void> | void;
   onMessagesEdit?: (payload: SessionMessagesEditPayload) => Promise<void> | void;
   onMessagesDelete?: (payload: SessionMessagesDeletePayload) => Promise<void> | void;
+  onMessagesReaction?: (payload: SessionMessagesReactionPayload) => Promise<void> | void;
 };
 
 export type SessionMessageSummary = {
@@ -124,6 +125,22 @@ export type SessionMessagesDeletePayload = {
   deletes: SessionMessageDeleteUpdate[];
 };
 
+export type SessionMessageReactionUpdate = {
+  messageId: string;
+  chatJid?: string;
+  actorJid?: string;
+  fromMe?: boolean;
+  emoji?: string | null;
+  reactedAt?: number | null;
+  removed?: boolean;
+};
+
+export type SessionMessagesReactionPayload = {
+  reactionsCount: number;
+  reactions: SessionMessageReactionUpdate[];
+  source?: 'event' | 'history';
+};
+
 export type StartSessionRequest = {
   sessionId: string;
   tenantId: string;
@@ -157,6 +174,12 @@ export type DeleteSessionMessageRequest = {
   key: SessionMessageKey;
 };
 
+export type ReactSessionMessageRequest = {
+  sessionId: string;
+  key: SessionMessageKey;
+  emoji: string | null;
+};
+
 export interface SessionProvider {
   start(request: StartSessionRequest): Promise<void>;
   stop(sessionId: string): Promise<void>;
@@ -164,4 +187,5 @@ export interface SessionProvider {
   readMessages(request: ReadSessionMessagesRequest): Promise<void>;
   editMessage(request: EditSessionMessageRequest): Promise<void>;
   deleteMessage(request: DeleteSessionMessageRequest): Promise<void>;
+  reactMessage(request: ReactSessionMessageRequest): Promise<void>;
 }

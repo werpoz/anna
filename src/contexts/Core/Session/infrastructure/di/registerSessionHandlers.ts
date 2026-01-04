@@ -8,6 +8,7 @@ import { PersistSessionContactsOnSessionContactsUpsert } from '@/contexts/Core/S
 import { PersistSessionMessageStatusOnSessionMessagesUpdate } from '@/contexts/Core/Session/infrastructure/PersistSessionMessageStatusOnSessionMessagesUpdate';
 import { PersistSessionMessageEditsOnSessionMessagesEdit } from '@/contexts/Core/Session/infrastructure/PersistSessionMessageEditsOnSessionMessagesEdit';
 import { PersistSessionMessageDeletesOnSessionMessagesDelete } from '@/contexts/Core/Session/infrastructure/PersistSessionMessageDeletesOnSessionMessagesDelete';
+import { PersistSessionMessageReactionsOnSessionMessagesReaction } from '@/contexts/Core/Session/infrastructure/PersistSessionMessageReactionsOnSessionMessagesReaction';
 
 container.register(TOKENS.DomainEventSubscribers, {
   useClass: PersistSessionHistoryOnSessionHistorySync,
@@ -32,4 +33,7 @@ container.register(TOKENS.DomainEventSubscribers, {
 });
 container.register(TOKENS.DomainEventSubscribers, {
   useClass: PersistSessionMessageDeletesOnSessionMessagesDelete,
+});
+container.register(TOKENS.DomainEventSubscribers, {
+  useClass: PersistSessionMessageReactionsOnSessionMessagesReaction,
 });

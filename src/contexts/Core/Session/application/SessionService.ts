@@ -6,6 +6,7 @@ import { DeleteSession } from '@/contexts/Core/Session/application/use-cases/Del
 import { ReadSessionMessages } from '@/contexts/Core/Session/application/use-cases/ReadSessionMessages';
 import { EditSessionMessage } from '@/contexts/Core/Session/application/use-cases/EditSessionMessage';
 import { DeleteSessionMessage } from '@/contexts/Core/Session/application/use-cases/DeleteSessionMessage';
+import { ReactSessionMessage } from '@/contexts/Core/Session/application/use-cases/ReactSessionMessage';
 
 export class SessionService {
   constructor(
@@ -15,7 +16,8 @@ export class SessionService {
     private readonly deleteSession: DeleteSession,
     private readonly readSessionMessages: ReadSessionMessages,
     private readonly editSessionMessage: EditSessionMessage,
-    private readonly deleteSessionMessage: DeleteSessionMessage
+    private readonly deleteSessionMessage: DeleteSessionMessage,
+    private readonly reactSessionMessage: ReactSessionMessage
   ) {}
 
   async start(sessionId: string, tenantId: string): Promise<void> {
@@ -44,5 +46,9 @@ export class SessionService {
 
   async deleteMessage(sessionId: string, messageId: string): Promise<void> {
     await this.deleteSessionMessage.execute(sessionId, messageId);
+  }
+
+  async reactMessage(sessionId: string, messageId: string, emoji: string | null): Promise<void> {
+    await this.reactSessionMessage.execute(sessionId, messageId, emoji);
   }
 }

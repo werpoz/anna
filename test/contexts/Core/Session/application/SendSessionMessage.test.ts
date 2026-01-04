@@ -68,6 +68,7 @@ const makeProvider = () => {
     async readMessages() {},
     async editMessage() {},
     async deleteMessage() {},
+    async reactMessage() {},
   };
 
   return { provider, getLastRequest: () => lastRequest };

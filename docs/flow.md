@@ -19,6 +19,7 @@ Eventos emitidos por tenant:
 - `session.messages.update`
 - `session.messages.edit`
 - `session.messages.delete`
+- `session.messages.reaction`
 - `session.contacts.upsert`
 - `session.presence.update`
 
@@ -44,6 +45,7 @@ Resumen de payloads:
 - `session.messages.update`: `{ tenantId, updatesCount, updates[] }`
 - `session.messages.edit`: `{ tenantId, editsCount, edits[] }`
 - `session.messages.delete`: `{ tenantId, scope, chatJid?, deletesCount, deletes[] }`
+- `session.messages.reaction`: `{ tenantId, reactionsCount, reactions[] }`
 - `session.contacts.upsert`: `{ tenantId, contactsCount, contactsTruncated, contacts[] }`
 - `session.presence.update`: `{ tenantId, chatJid, updatesCount, updates[] }`
 
@@ -52,6 +54,7 @@ Notas:
 - `updates[]` suele incluir `messageId`, `status` y `statusAt` (delivered/read/played).
 - `edits[]` incluye `messageId`, `text`, `type`, `editedAt`.
 - `deletes[]` incluye `messageId` y `deletedAt` (scope `message`), o `scope=chat` para limpieza masiva.
+- `reactions[]` incluye `messageId`, `emoji`, `actorJid`, `reactedAt` y `removed`.
 - `presence.update` trae `presence` (composing/available/unavailable/paused) y `lastSeen` cuando aplica.
 
 ## Ejemplos de eventos WS (payload real)
@@ -213,6 +216,30 @@ session.messages.delete (chat):
 }
 ```
 
+session.messages.reaction:
+```json
+{
+  "type": "session.messages.reaction",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "payload": {
+    "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12",
+    "reactionsCount": 1,
+    "reactions": [
+      {
+        "messageId": "msg-2",
+        "chatJid": "51999999999@s.whatsapp.net",
+        "actorJid": "51999999999@s.whatsapp.net",
+        "fromMe": false,
+        "emoji": "👍",
+        "reactedAt": 1767220090,
+        "removed": false
+      }
+    ],
+    "source": "event"
+  }
+}
+```
+
 session.contacts.upsert:
 ```json
 {
@@ -276,12 +303,38 @@ Chats:
 - `POST /chats/:jid/read`
 - `PATCH /chats/:jid/messages/:messageId`
 - `DELETE /chats/:jid/messages/:messageId`
+- `POST /chats/:jid/messages/:messageId/reactions`
 
 Contacts:
 - `GET /contacts`
 
 Metrics:
 - `GET /metrics` (si esta habilitado)
+
+## Reacciones (backend)
+
+Acciones:
+- Agregar/actualizar reaccion: `POST /chats/:jid/messages/:messageId/reactions` con `{ "emoji": "👍" }`.
+- Quitar reaccion: enviar `{ "emoji": null }` (remueve tu reaccion sobre ese mensaje).
+
+WS:
+- Evento `session.messages.reaction` con `reactions[]` (`messageId`, `chatJid`, `actorJid`, `emoji`, `reactedAt`, `removed`).
+- `removed=true` cuando se quita una reaccion.
+
+Respuesta API:
+- `GET /chats/:jid/messages` incluye `reactions` por mensaje, agregadas por emoji.
+
+Ejemplo de mensaje con reacciones (API):
+```json
+{
+  "id": "msg-2",
+  "text": "Hola",
+  "reactions": [
+    { "emoji": "👍", "count": 2, "actors": ["51999999999@s.whatsapp.net", "51888888888@s.whatsapp.net"] },
+    { "emoji": "❤️", "count": 1, "actors": ["51999999999@s.whatsapp.net"] }
+  ]
+}
+```
 
 ## Ejemplos de endpoints (frontend)
 
@@ -353,6 +406,22 @@ Borrar:
 ```bash
 curl -X DELETE http://localhost:3000/chats/<jid>/messages/<messageId> \
   -H 'Authorization: Bearer <accessToken>'
+```
+
+Reaccionar:
+```bash
+curl -X POST http://localhost:3000/chats/<jid>/messages/<messageId>/reactions \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"emoji":"👍"}'
+```
+
+Quitar reaccion:
+```bash
+curl -X POST http://localhost:3000/chats/<jid>/messages/<messageId>/reactions \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"emoji":null}'
 ```
 
 Listar contactos:
@@ -482,6 +551,12 @@ sequenceDiagram
   Worker->>WA: send message
   Worker-->>Redis: session.messages.upsert
   Redis-->>DB: persist messages/chats
+
+  Client->>API: POST /chats/:jid/messages/:messageId/reactions
+  API->>Redis: session.reactMessage (command)
+  Worker->>WA: react message
+  Worker-->>Redis: session.messages.reaction
+  Redis-->>DB: persist reactions
 
   Client->>API: POST /chats/:jid/read
   API->>Redis: session.readMessages (command)

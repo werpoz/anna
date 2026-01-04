@@ -7,6 +7,7 @@ import { registerSendChatMessageRoute } from '@/apps/api/controllers/chats/sendC
 import { registerReadChatMessagesRoute } from '@/apps/api/controllers/chats/readChatMessages.controller';
 import { registerEditChatMessageRoute } from '@/apps/api/controllers/chats/editChatMessage.controller';
 import { registerDeleteChatMessageRoute } from '@/apps/api/controllers/chats/deleteChatMessage.controller';
+import { registerReactChatMessageRoute } from '@/apps/api/controllers/chats/reactChatMessage.controller';
 
 export const registerChatRoutes = (app: Hono<AppEnv>, deps: ChatControllerDeps): void => {
   registerListChatsRoute(app, deps);
@@ -15,4 +16,5 @@ export const registerChatRoutes = (app: Hono<AppEnv>, deps: ChatControllerDeps):
   registerReadChatMessagesRoute(app, deps);
   registerEditChatMessageRoute(app, deps);
   registerDeleteChatMessageRoute(app, deps);
+  registerReactChatMessageRoute(app, deps);
 };

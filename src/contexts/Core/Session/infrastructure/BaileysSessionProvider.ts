@@ -25,11 +25,14 @@ import type {
   SessionMessageEditUpdate,
   SessionMessagesDeletePayload,
   SessionMessageDeleteUpdate,
+  SessionMessagesReactionPayload,
+  SessionMessageReactionUpdate,
   StartSessionRequest,
   SendSessionMessageRequest,
   ReadSessionMessagesRequest,
   EditSessionMessageRequest,
   DeleteSessionMessageRequest,
+  ReactSessionMessageRequest,
 } from '@/contexts/Core/Session/application/SessionProvider';
 import { usePostgresAuthState } from '@/contexts/Core/Session/infrastructure/PostgresBaileysAuthState';
 import { logger } from '@/contexts/Shared/infrastructure/observability/logger';
@@ -50,6 +53,7 @@ type ActiveSession = {
 const MAX_HISTORY_MESSAGES = 200;
 const MAX_UPSERT_MESSAGES = 50;
 const MAX_CONTACTS = 200;
+const MAX_REACTIONS = 200;
 
 export class BaileysSessionProvider implements SessionProvider {
   private readonly sessions: Map<string, ActiveSession>;
@@ -113,19 +117,35 @@ export class BaileysSessionProvider implements SessionProvider {
       }
 
       const messages = payload.messages ?? [];
-      const summaries = messages.slice(0, MAX_HISTORY_MESSAGES).map(buildMessageSummary);
+      const reactions = request.handlers.onMessagesReaction
+        ? messages
+            .map((message) => buildReactionUpdateFromMessage(message, socket.user?.id ?? null))
+            .filter(isReactionUpdate)
+            .slice(0, MAX_REACTIONS)
+        : [];
+      const nonReactionMessages = messages.filter((message) => !isReactionMessage(message));
+      const summaries = nonReactionMessages.slice(0, MAX_HISTORY_MESSAGES).map(buildMessageSummary);
       const syncPayload: SessionHistorySyncPayload = {
         syncType: resolveHistorySyncType(payload.syncType),
         progress: payload.progress ?? null,
         isLatest: payload.isLatest,
         chatsCount: payload.chats?.length ?? 0,
         contactsCount: payload.contacts?.length ?? 0,
-        messagesCount: messages.length,
-        messagesTruncated: messages.length > summaries.length,
+        messagesCount: nonReactionMessages.length,
+        messagesTruncated: nonReactionMessages.length > summaries.length,
         messages: summaries,
       };
 
       void request.handlers.onHistorySync(syncPayload);
+
+      if (reactions.length && request.handlers.onMessagesReaction) {
+        const reactionsPayload: SessionMessagesReactionPayload = {
+          reactionsCount: reactions.length,
+          reactions,
+          source: 'history',
+        };
+        void request.handlers.onMessagesReaction(reactionsPayload);
+      }
 
       if (request.handlers.onContactsUpsert && payload.contacts?.length) {
         const contacts = payload.contacts
@@ -148,11 +168,12 @@ export class BaileysSessionProvider implements SessionProvider {
       }
 
       const messages = payload.messages ?? [];
-      const summaries = messages.slice(0, MAX_UPSERT_MESSAGES).map(buildMessageSummary);
+      const nonReactionMessages = messages.filter((message) => !isReactionMessage(message));
+      const summaries = nonReactionMessages.slice(0, MAX_UPSERT_MESSAGES).map(buildMessageSummary);
       const upsertPayload: SessionMessagesUpsertPayload = {
         upsertType: payload.type,
         requestId: payload.requestId,
-        messagesCount: messages.length,
+        messagesCount: nonReactionMessages.length,
         messages: summaries,
       };
 
@@ -292,6 +313,25 @@ export class BaileysSessionProvider implements SessionProvider {
       void request.handlers.onPresenceUpdate(payload);
     });
 
+    socket.ev.on('messages.reaction', (updates) => {
+      if (!request.handlers.onMessagesReaction) {
+        return;
+      }
+      const reactions = updates
+        .map((update) => buildReactionUpdateFromEvent(update, socket.user?.id ?? null))
+        .filter(isReactionUpdate)
+        .slice(0, MAX_REACTIONS);
+      if (!reactions.length) {
+        return;
+      }
+      const reactionsPayload: SessionMessagesReactionPayload = {
+        reactionsCount: reactions.length,
+        reactions,
+        source: 'event',
+      };
+      void request.handlers.onMessagesReaction(reactionsPayload);
+    });
+
     this.sessions.set(request.sessionId, { socket, handlers: request.handlers });
   }
 
@@ -360,6 +400,21 @@ export class BaileysSessionProvider implements SessionProvider {
     const key = toBaileysKey(request.key);
     await active.socket.sendMessage(key.remoteJid ?? request.key.remoteJid, {
       delete: key,
+    });
+  }
+
+  async reactMessage(request: ReactSessionMessageRequest): Promise<void> {
+    const active = this.sessions.get(request.sessionId);
+    if (!active) {
+      throw new Error(`Session <${request.sessionId}> is not active`);
+    }
+
+    const key = toBaileysKey(request.key);
+    await active.socket.sendMessage(key.remoteJid ?? request.key.remoteJid, {
+      react: {
+        text: request.emoji ?? '',
+        key,
+      },
     });
   }
 
@@ -534,6 +589,16 @@ const resolveTimestampSeconds = (value: number | bigint | { toNumber?: () => num
   return null;
 };
 
+const normalizeTimestampSeconds = (
+  value: number | bigint | { toNumber?: () => number } | null | undefined
+): number | null => {
+  const resolved = resolveTimestampSeconds(value);
+  if (resolved === null) {
+    return null;
+  }
+  return resolved > 1_000_000_000_000 ? Math.floor(resolved / 1000) : resolved;
+};
+
 const isContactSummary = (value: SessionContactSummary | null): value is SessionContactSummary => Boolean(value);
 
 const isStatusUpdate = (
@@ -630,6 +695,85 @@ const isEditUpdate = (value: SessionMessageEditUpdate | null): value is SessionM
 
 const isDeleteUpdate = (value: SessionMessageDeleteUpdate | null): value is SessionMessageDeleteUpdate =>
   Boolean(value);
+
+const isReactionMessage = (message: proto.IWebMessageInfo): boolean => {
+  const content = extractMessageContent(message.message);
+  return Boolean(content && (content as { reactionMessage?: unknown }).reactionMessage);
+};
+
+const buildReactionUpdateFromMessage = (
+  message: proto.IWebMessageInfo,
+  selfJid: string | null
+): SessionMessageReactionUpdate | null => {
+  const content = extractMessageContent(message.message);
+  const reaction = (content as { reactionMessage?: proto.Message.IReactionMessage } | null)?.reactionMessage;
+  if (!reaction?.key) {
+    return null;
+  }
+  const targetKey = reaction.key;
+  const messageId = targetKey.id ?? '';
+  const chatJid = targetKey.remoteJid ?? message.key?.remoteJid ?? '';
+  if (!messageId || !chatJid) {
+    return null;
+  }
+  const actorKey = message.key ?? {};
+  const fromMe = actorKey.fromMe ?? false;
+  const actorJid =
+    actorKey.participant ??
+    (fromMe ? selfJid ?? null : actorKey.remoteJid ?? null) ??
+    null;
+  if (!actorJid) {
+    return null;
+  }
+  const emoji = reaction.text ?? null;
+  const reactedAt = normalizeTimestampSeconds(reaction.senderTimestampMs);
+  return {
+    messageId,
+    chatJid,
+    actorJid,
+    fromMe,
+    emoji,
+    reactedAt,
+    removed: !emoji,
+  };
+};
+
+const buildReactionUpdateFromEvent = (
+  update: { key: proto.IMessageKey; reaction: proto.IReaction },
+  selfJid: string | null
+): SessionMessageReactionUpdate | null => {
+  const targetKey = update.key ?? null;
+  const messageId = targetKey?.id ?? '';
+  const chatJid = targetKey?.remoteJid ?? '';
+  if (!messageId || !chatJid) {
+    return null;
+  }
+  const reaction = update.reaction ?? null;
+  const actorKey = reaction?.key ?? null;
+  const fromMe = actorKey?.fromMe ?? false;
+  const actorJid =
+    actorKey?.participant ??
+    (fromMe ? selfJid ?? null : actorKey?.remoteJid ?? null) ??
+    null;
+  if (!actorJid) {
+    return null;
+  }
+  const emoji = reaction?.text ?? null;
+  const reactedAt = normalizeTimestampSeconds(reaction?.senderTimestampMs ?? null);
+  return {
+    messageId,
+    chatJid,
+    actorJid,
+    fromMe,
+    emoji,
+    reactedAt,
+    removed: !emoji,
+  };
+};
+
+const isReactionUpdate = (
+  value: SessionMessageReactionUpdate | null
+): value is SessionMessageReactionUpdate => Boolean(value);
 
 const resolveDisconnectReason = (error: unknown): string => {
   const statusCode = (error as { output?: { statusCode?: number } })?.output?.statusCode;

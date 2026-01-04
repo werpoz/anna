@@ -49,7 +49,7 @@ Leyenda:
 | Multi-sesion por tenant | Parcial | Backend soporta multiples sesiones; frontend aun no |
 | Media (imagenes/video/docs) | Pendiente | Solo texto por ahora |
 | Notas de voz | Pendiente | - |
-| Reacciones | Pendiente | - |
+| Reacciones | Soportado | `POST /chats/:jid/messages/:messageId/reactions` + `session.messages.reaction` |
 | Stickers | Pendiente | - |
 | Estados (stories) | Pendiente | - |
 | Llamadas | Pendiente | - |
@@ -70,6 +70,18 @@ Dashboard (Prometheus + Grafana):
 - Prometheus: `http://localhost:9090`
 - Grafana: `http://localhost:3005` (admin/admin)
   - Importa `grafana/dashboard.json` para un panel listo.
+
+MinIO (S3 local):
+- API: `http://localhost:9000`
+- Console: `http://localhost:9001` (minioadmin/minioadmin)
+- Bucket sugerido: `anna-media`
+
+Crear bucket (opcional):
+```bash
+docker run --rm --network=host minio/mc \
+  alias set local http://localhost:9000 minioadmin minioadmin
+docker run --rm --network=host minio/mc mb local/anna-media
+```
 
 Defaults (sobrescribibles por env):
 - `DATABASE_URL=postgres://anna:anna@localhost:5432/anna`
@@ -107,6 +119,12 @@ Defaults (sobrescribibles por env):
 - `SESSIONS_COMMAND_BLOCK_MS=5000`
 - `SESSIONS_COMMAND_BATCH_SIZE=25`
 - `SESSIONS_COMMAND_DLQ_STREAM=session-commands-dlq`
+- `S3_ENDPOINT=http://localhost:9000`
+- `S3_REGION=us-east-1`
+- `S3_ACCESS_KEY=minioadmin`
+- `S3_SECRET_KEY=minioadmin`
+- `S3_BUCKET=anna-media`
+- `S3_FORCE_PATH_STYLE=true`
 
 ## Migraciones
 
@@ -131,6 +149,7 @@ docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0007__session_contacts.sql
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0008__session_message_status.sql
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0009__session_message_edits.sql
+docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0010__session_message_reactions.sql
 ```
 
 Runner de migraciones (usa `DATABASE_URL`):
@@ -354,6 +373,22 @@ curl -X DELETE http://localhost:3000/chats/<jid>/messages/<messageId> \
   -H 'Authorization: Bearer <accessToken>'
 ```
 
+Reaccionar:
+```bash
+curl -X POST http://localhost:3000/chats/<jid>/messages/<messageId>/reactions \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"emoji":"👍"}'
+```
+
+Quitar reaccion:
+```bash
+curl -X POST http://localhost:3000/chats/<jid>/messages/<messageId>/reactions \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"emoji":null}'
+```
+
 ## Contactos (backend)
 Listar contactos por tenant/sesion:
 ```bash
@@ -381,6 +416,7 @@ Eventos esperados:
 - `session.messages.update`
 - `session.messages.edit`
 - `session.messages.delete`
+- `session.messages.reaction`
 - `session.contacts.upsert`
 - `session.presence.update`
 
@@ -389,10 +425,11 @@ Notas de historial/mensajes:
 - `session.messages.upsert` incluye un resumen corto de mensajes en tiempo real.
 - `session.messages.edit` actualiza contenido/estado de edicion.
 - `session.messages.delete` indica borrado por mensaje o por chat.
+- `session.messages.reaction` informa reacciones por mensaje.
 
 Persistencia:
 - El `event-consumer` persiste `session.history.sync` y `session.messages.upsert` en Postgres.
-- Tablas: `session_messages` (historial) y `session_chats` (resumen por chat).
+- Tablas: `session_messages` (historial), `session_chats` (resumen por chat) y `session_message_reactions` (reacciones).
 
 Frontend (Vite + React):
 - `src/apps/web`

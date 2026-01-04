@@ -132,6 +132,9 @@ export class RedisSessionCommandConsumer {
       case 'session.deleteMessage':
         await this.sessionService.deleteMessage(command.sessionId, command.messageId);
         return;
+      case 'session.reactMessage':
+        await this.sessionService.reactMessage(command.sessionId, command.messageId, command.emoji ?? null);
+        return;
       case 'session.delete':
         await this.sessionService.delete(command.sessionId);
         return;

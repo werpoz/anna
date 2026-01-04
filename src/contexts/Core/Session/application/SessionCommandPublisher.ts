@@ -45,6 +45,14 @@ export type DeleteSessionMessageCommand = {
   messageId: string;
 };
 
+export type ReactSessionMessageCommand = {
+  type: 'session.reactMessage';
+  commandId: string;
+  sessionId: string;
+  messageId: string;
+  emoji: string | null;
+};
+
 export type DeleteSessionCommand = {
   type: 'session.delete';
   commandId: string;
@@ -58,6 +66,7 @@ export type SessionCommand =
   | ReadSessionMessagesCommand
   | EditSessionMessageCommand
   | DeleteSessionMessageCommand
+  | ReactSessionMessageCommand
   | DeleteSessionCommand;
 
 export interface SessionCommandPublisher {

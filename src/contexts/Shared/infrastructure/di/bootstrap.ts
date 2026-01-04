@@ -37,6 +37,7 @@ import { PostgresSessionRepository } from '@/contexts/Core/Session/infrastructur
 import { PostgresSessionMessageRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageRepository';
 import { PostgresSessionChatRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatRepository';
 import { PostgresSessionContactRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionContactRepository';
+import { PostgresSessionMessageReactionRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageReactionRepository';
 import type { UserRepository } from '@/contexts/Core/User/domain/UserRepository';
 import type { RefreshTokenRepository } from '@/contexts/Core/Auth/domain/RefreshTokenRepository';
 import type { EventBus } from '@/contexts/Shared/domain/EventBus';
@@ -51,6 +52,7 @@ export type AppContext = {
   sessionMessageRepository: PostgresSessionMessageRepository;
   sessionChatRepository: PostgresSessionChatRepository;
   sessionContactRepository: PostgresSessionContactRepository;
+  sessionMessageReactionRepository: PostgresSessionMessageReactionRepository;
 };
 
 export const buildAppContext = (): AppContext => {
@@ -131,6 +133,7 @@ export const buildAppContext = (): AppContext => {
   const sessionMessageRepository = new PostgresSessionMessageRepository(getPool());
   const sessionChatRepository = new PostgresSessionChatRepository(getPool());
   const sessionContactRepository = new PostgresSessionContactRepository(getPool());
+  const sessionMessageReactionRepository = new PostgresSessionMessageReactionRepository(getPool());
 
   return {
     commandBus,
@@ -141,5 +144,6 @@ export const buildAppContext = (): AppContext => {
     sessionMessageRepository,
     sessionChatRepository,
     sessionContactRepository,
+    sessionMessageReactionRepository,
   };
 };
