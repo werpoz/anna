@@ -5,6 +5,7 @@ import { SessionPresenceUpdateDomainEvent } from '@/contexts/Core/Session/domain
 import { SessionMessagesEditDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesEditDomainEvent';
 import { SessionMessagesDeleteDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesDeleteDomainEvent';
 import { SessionMessagesReactionDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesReactionDomainEvent';
+import { SessionMessagesMediaDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesMediaDomainEvent';
 
 describe('Session realtime domain events', () => {
   it('round-trips session contacts upsert', () => {
@@ -173,5 +174,35 @@ describe('Session realtime domain events', () => {
     expect(rebuilt.tenantId).toBe(event.tenantId);
     expect(rebuilt.payload.reactions[0]?.emoji).toBe('👍');
     expect(rebuilt.payload.reactions[0]?.messageId).toBe('msg-1');
+  });
+
+  it('round-trips session messages media', () => {
+    const event = new SessionMessagesMediaDomainEvent({
+      aggregateId: 'session-1',
+      tenantId: 'tenant-1',
+      payload: {
+        mediaCount: 1,
+        source: 'event',
+        media: [
+          {
+            messageId: 'msg-1',
+            chatJid: '123@s.whatsapp.net',
+            kind: 'image',
+            mime: 'image/jpeg',
+            url: 'http://localhost:9000/anna-media/tenants/tenant-1/sessions/session-1/messages/msg-1/img.jpg',
+          },
+        ],
+      },
+    });
+
+    const rebuilt = SessionMessagesMediaDomainEvent.fromPrimitives({
+      aggregateId: event.aggregateId,
+      eventId: event.eventId,
+      occurredOn: event.occurredOn,
+      attributes: event.toPrimitives(),
+    });
+
+    expect(rebuilt.tenantId).toBe(event.tenantId);
+    expect(rebuilt.payload.media[0]?.kind).toBe('image');
   });
 });

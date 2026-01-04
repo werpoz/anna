@@ -32,10 +32,12 @@ import { PublishSessionPresenceUpdate } from '@/contexts/Core/Session/applicatio
 import { PublishSessionMessagesEdit } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesEdit';
 import { PublishSessionMessagesDelete } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesDelete';
 import { PublishSessionMessagesReaction } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesReaction';
+import { PublishSessionMessagesMedia } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesMedia';
 import { PostgresSessionMessageRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageRepository';
 import { PostgresSessionChatRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatRepository';
 import { PostgresSessionContactRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionContactRepository';
 import { PostgresSessionMessageReactionRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageReactionRepository';
+import { PostgresSessionMessageMediaRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageMediaRepository';
 
 initTelemetry(`${env.otelServiceName}-sessions`);
 
@@ -70,6 +72,7 @@ const publishSessionPresenceUpdate = new PublishSessionPresenceUpdate(eventBus);
 const publishSessionMessagesEdit = new PublishSessionMessagesEdit(eventBus);
 const publishSessionMessagesDelete = new PublishSessionMessagesDelete(eventBus);
 const publishSessionMessagesReaction = new PublishSessionMessagesReaction(eventBus);
+const publishSessionMessagesMedia = new PublishSessionMessagesMedia(eventBus);
 const sessionAuthRepository = new PostgresSessionAuthRepository(pool);
 const sessionMessageRepository = new PostgresSessionMessageRepository(pool);
 const startSession = new StartSession(
@@ -86,7 +89,8 @@ const startSession = new StartSession(
   publishSessionPresenceUpdate,
   publishSessionMessagesEdit,
   publishSessionMessagesDelete,
-  publishSessionMessagesReaction
+  publishSessionMessagesReaction,
+  publishSessionMessagesMedia
 );
 const stopSession = new StopSession(sessionRepository, eventBus, sessionProvider);
 const sendSessionMessage = new SendSessionMessage(
@@ -97,6 +101,7 @@ const sendSessionMessage = new SendSessionMessage(
 const sessionChatRepository = new PostgresSessionChatRepository(pool);
 const sessionContactRepository = new PostgresSessionContactRepository(pool);
 const sessionMessageReactionRepository = new PostgresSessionMessageReactionRepository(pool);
+const sessionMessageMediaRepository = new PostgresSessionMessageMediaRepository(pool);
 const deleteSession = new DeleteSession(
   sessionRepository,
   sessionAuthRepository,
@@ -104,6 +109,7 @@ const deleteSession = new DeleteSession(
   sessionChatRepository,
   sessionContactRepository,
   sessionMessageReactionRepository,
+  sessionMessageMediaRepository,
   sessionProvider
 );
 const readSessionMessages = new ReadSessionMessages(

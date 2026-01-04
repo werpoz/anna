@@ -15,6 +15,7 @@ import { PublishSessionPresenceUpdate } from '@/contexts/Core/Session/applicatio
 import { PublishSessionMessagesEdit } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesEdit';
 import { PublishSessionMessagesDelete } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesDelete';
 import { PublishSessionMessagesReaction } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesReaction';
+import { PublishSessionMessagesMedia } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesMedia';
 
 export class StartSession {
   constructor(
@@ -31,7 +32,8 @@ export class StartSession {
     private readonly publishSessionPresenceUpdate: PublishSessionPresenceUpdate,
     private readonly publishSessionMessagesEdit: PublishSessionMessagesEdit,
     private readonly publishSessionMessagesDelete: PublishSessionMessagesDelete,
-    private readonly publishSessionMessagesReaction: PublishSessionMessagesReaction
+    private readonly publishSessionMessagesReaction: PublishSessionMessagesReaction,
+    private readonly publishSessionMessagesMedia: PublishSessionMessagesMedia
   ) {}
 
   async execute(sessionId: string, tenantId: string): Promise<void> {
@@ -82,6 +84,9 @@ export class StartSession {
         },
         onMessagesReaction: async (payload) => {
           await this.publishSessionMessagesReaction.execute(sessionId, resolvedTenantId, payload);
+        },
+        onMessagesMedia: async (payload) => {
+          await this.publishSessionMessagesMedia.execute(sessionId, resolvedTenantId, payload);
         },
       },
     });

@@ -27,8 +27,9 @@ Flujo mínimo:
 
 Entidades y persistencia clave:
 - `Session`: estado (`pending_qr`, `connected`, `disconnected`), `phone`, `tenantId`.
- - `session_messages`: historial por chat con `message_id`, `from_me`, `timestamp`, `raw`, `status`, `is_edited`, `is_deleted`.
- - `session_message_reactions`: reacciones por mensaje (emoji, actor, removed).
+- `session_messages`: historial por chat con `message_id`, `from_me`, `timestamp`, `raw`, `status`, `is_edited`, `is_deleted`.
+- `session_message_reactions`: reacciones por mensaje (emoji, actor, removed).
+- `session_message_media`: media por mensaje (url, mime, size, dimensiones).
 - `session_chats`: resumen por chat (`lastMessageTs`, `lastMessageText`, `unreadCount`).
 - `session_contacts`: contactos/perfiles por sesion (`name`, `notify`, `imgUrl`, `status`).
 
@@ -40,6 +41,7 @@ Eventos clave:
 - `session.messages.edit`
 - `session.messages.delete`
 - `session.messages.reaction`
+- `session.messages.media`
 - `session.presence.update`
 
 ## Eventos y Outbox
@@ -77,7 +79,7 @@ Notas MVP:
 
 5) **Persistencia de chats/mensajes (event-consumer)**:
    - `session.history.sync` y `session.messages.upsert` se persisten en Postgres.
-   - Tablas: `session_messages` (historial) y `session_chats` (resumen por chat).
+  - Tablas: `session_messages` (historial), `session_chats` (resumen por chat), `session_message_reactions` y `session_message_media`.
 
 6) **Persistencia de contactos y status**:
    - `session.contacts.upsert` persiste en `session_contacts`.
@@ -85,6 +87,7 @@ Notas MVP:
    - `session.messages.edit` actualiza `text/type` y `edited_at`.
    - `session.messages.delete` marca `is_deleted` y `deleted_at`.
    - `session.messages.reaction` persiste en `session_message_reactions`.
+   - `session.messages.media` persiste en `session_message_media`.
 
 6) **Realtime WebSocket**:
    - La API consume `domain-events` y emite a `ws://.../ws/sessions`.

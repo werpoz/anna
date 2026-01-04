@@ -47,7 +47,7 @@ Leyenda:
 | Contactos / perfiles | Soportado | `GET /contacts`, `session.contacts.upsert` |
 | Presencia / typing | Soportado | `session.presence.update` |
 | Multi-sesion por tenant | Parcial | Backend soporta multiples sesiones; frontend aun no |
-| Media (imagenes/video/docs) | Pendiente | Solo texto por ahora |
+| Imagen / Video / Audio / Document | Soportado | `media` en `GET /chats/:jid/messages` + `session.messages.media` |
 | Notas de voz | Pendiente | - |
 | Reacciones | Soportado | `POST /chats/:jid/messages/:messageId/reactions` + `session.messages.reaction` |
 | Stickers | Pendiente | - |
@@ -71,12 +71,17 @@ Dashboard (Prometheus + Grafana):
 - Grafana: `http://localhost:3005` (admin/admin)
   - Importa `grafana/dashboard.json` para un panel listo.
 
-MinIO (S3 local):
+Cloudflare R2 (S3 compatible, bucket publico):
+- API endpoint: `https://<account-id>.r2.cloudflarestorage.com`
+- Public base URL: `https://<bucket>.<account-id>.r2.dev` (o dominio custom)
+- Bucket sugerido: `anna-media`
+- Prefijo: `tenants/{tenantId}/sessions/{sessionId}/messages/{messageId}/...`
+
+Opcional: MinIO local (solo si quieres S3 en localhost):
 - API: `http://localhost:9000`
 - Console: `http://localhost:9001` (minioadmin/minioadmin)
-- Bucket sugerido: `anna-media`
 
-Crear bucket (opcional):
+Crear bucket MinIO (opcional):
 ```bash
 docker run --rm --network=host minio/mc \
   alias set local http://localhost:9000 minioadmin minioadmin
@@ -119,12 +124,13 @@ Defaults (sobrescribibles por env):
 - `SESSIONS_COMMAND_BLOCK_MS=5000`
 - `SESSIONS_COMMAND_BATCH_SIZE=25`
 - `SESSIONS_COMMAND_DLQ_STREAM=session-commands-dlq`
-- `S3_ENDPOINT=http://localhost:9000`
-- `S3_REGION=us-east-1`
-- `S3_ACCESS_KEY=minioadmin`
-- `S3_SECRET_KEY=minioadmin`
+- `S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com`
+- `S3_REGION=auto`
+- `S3_ACCESS_KEY=<r2-access-key>`
+- `S3_SECRET_KEY=<r2-secret-key>`
 - `S3_BUCKET=anna-media`
-- `S3_FORCE_PATH_STYLE=true`
+- `S3_PUBLIC_BASE_URL=https://anna-media.<account-id>.r2.dev`
+- `S3_FORCE_PATH_STYLE=false`
 
 ## Migraciones
 
@@ -150,6 +156,7 @@ docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0008__session_message_status.sql
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0009__session_message_edits.sql
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0010__session_message_reactions.sql
+docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0011__session_message_media.sql
 ```
 
 Runner de migraciones (usa `DATABASE_URL`):
@@ -328,6 +335,7 @@ curl "http://localhost:3000/chats/<jid>/messages?limit=50" \
 ```
 Respuesta incluye `status`, `statusAt`, `replyTo` y `forward` cuando aplica.
 Tambien incluye `isEdited`, `editedAt`, `isDeleted`, `deletedAt`.
+Incluye `media` si el mensaje tiene imagen/video/audio/documento y el upload ya termino.
 
 Enviar mensaje por chat:
 ```bash
@@ -399,6 +407,7 @@ curl http://localhost:3000/contacts \
 Notas:
 - Requiere `worker:events` activo para que `session_chats` y `session_messages` se actualicen.
 - Puedes forzar una sesion especifica con `?sessionId=<uuid>` en `GET /chats` y `GET /chats/:jid/messages`.
+- Media requiere `S3_*` configurado (R2 o MinIO) y `S3_PUBLIC_BASE_URL` para exponer `media.url` publicas.
 
 WebSocket de eventos (solo sesiones del tenant autenticado):
 ```
@@ -417,6 +426,7 @@ Eventos esperados:
 - `session.messages.edit`
 - `session.messages.delete`
 - `session.messages.reaction`
+- `session.messages.media`
 - `session.contacts.upsert`
 - `session.presence.update`
 
@@ -426,10 +436,11 @@ Notas de historial/mensajes:
 - `session.messages.edit` actualiza contenido/estado de edicion.
 - `session.messages.delete` indica borrado por mensaje o por chat.
 - `session.messages.reaction` informa reacciones por mensaje.
+- `session.messages.media` informa metadata y URL de media por mensaje.
 
 Persistencia:
 - El `event-consumer` persiste `session.history.sync` y `session.messages.upsert` en Postgres.
-- Tablas: `session_messages` (historial), `session_chats` (resumen por chat) y `session_message_reactions` (reacciones).
+- Tablas: `session_messages` (historial), `session_chats` (resumen por chat), `session_message_reactions` (reacciones) y `session_message_media` (media).
 
 Frontend (Vite + React):
 - `src/apps/web`

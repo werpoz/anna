@@ -10,6 +10,7 @@ export type SessionProviderHandlers = {
   onMessagesEdit?: (payload: SessionMessagesEditPayload) => Promise<void> | void;
   onMessagesDelete?: (payload: SessionMessagesDeletePayload) => Promise<void> | void;
   onMessagesReaction?: (payload: SessionMessagesReactionPayload) => Promise<void> | void;
+  onMessagesMedia?: (payload: SessionMessagesMediaPayload) => Promise<void> | void;
 };
 
 export type SessionMessageSummary = {
@@ -138,6 +139,26 @@ export type SessionMessageReactionUpdate = {
 export type SessionMessagesReactionPayload = {
   reactionsCount: number;
   reactions: SessionMessageReactionUpdate[];
+  source?: 'event' | 'history';
+};
+
+export type SessionMessageMediaUpdate = {
+  messageId: string;
+  chatJid?: string;
+  kind: 'image' | 'video' | 'audio' | 'document';
+  mime?: string | null;
+  size?: number | null;
+  fileName?: string | null;
+  url?: string | null;
+  sha256?: string | null;
+  width?: number | null;
+  height?: number | null;
+  duration?: number | null;
+};
+
+export type SessionMessagesMediaPayload = {
+  mediaCount: number;
+  media: SessionMessageMediaUpdate[];
   source?: 'event' | 'history';
 };
 

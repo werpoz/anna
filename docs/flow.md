@@ -20,6 +20,7 @@ Eventos emitidos por tenant:
 - `session.messages.edit`
 - `session.messages.delete`
 - `session.messages.reaction`
+- `session.messages.media`
 - `session.contacts.upsert`
 - `session.presence.update`
 
@@ -46,6 +47,7 @@ Resumen de payloads:
 - `session.messages.edit`: `{ tenantId, editsCount, edits[] }`
 - `session.messages.delete`: `{ tenantId, scope, chatJid?, deletesCount, deletes[] }`
 - `session.messages.reaction`: `{ tenantId, reactionsCount, reactions[] }`
+- `session.messages.media`: `{ tenantId, mediaCount, media[] }`
 - `session.contacts.upsert`: `{ tenantId, contactsCount, contactsTruncated, contacts[] }`
 - `session.presence.update`: `{ tenantId, chatJid, updatesCount, updates[] }`
 
@@ -55,6 +57,7 @@ Notas:
 - `edits[]` incluye `messageId`, `text`, `type`, `editedAt`.
 - `deletes[]` incluye `messageId` y `deletedAt` (scope `message`), o `scope=chat` para limpieza masiva.
 - `reactions[]` incluye `messageId`, `emoji`, `actorJid`, `reactedAt` y `removed`.
+- `media[]` incluye `messageId`, `kind`, `url`, `mime`, `size`, `width`, `height`, `duration`.
 - `presence.update` trae `presence` (composing/available/unavailable/paused) y `lastSeen` cuando aplica.
 
 ## Ejemplos de eventos WS (payload real)
@@ -240,6 +243,32 @@ session.messages.reaction:
 }
 ```
 
+session.messages.media:
+```json
+{
+  "type": "session.messages.media",
+  "sessionId": "4b1a9c08-6b70-4c1c-9d5b-2b7d8fd5b901",
+  "payload": {
+    "tenantId": "9e3a5b9c-56b9-4b8d-9e2b-5c3a1f4b9a12",
+    "mediaCount": 1,
+    "media": [
+      {
+        "messageId": "msg-3",
+        "chatJid": "51999999999@s.whatsapp.net",
+        "kind": "image",
+        "url": "https://anna-media.<account-id>.r2.dev/tenants/tenant-1/sessions/session-1/messages/msg-3/photo.jpg",
+        "mime": "image/jpeg",
+        "size": 120483,
+        "width": 720,
+        "height": 1280,
+        "duration": null
+      }
+    ],
+    "source": "event"
+  }
+}
+```
+
 session.contacts.upsert:
 ```json
 {
@@ -333,6 +362,37 @@ Ejemplo de mensaje con reacciones (API):
     { "emoji": "👍", "count": 2, "actors": ["51999999999@s.whatsapp.net", "51888888888@s.whatsapp.net"] },
     { "emoji": "❤️", "count": 1, "actors": ["51999999999@s.whatsapp.net"] }
   ]
+}
+```
+
+## Media (backend)
+
+Soportado:
+- `image`, `video`, `audio`, `document`.
+Almacenamiento:
+- Sube a S3/R2 (`S3_*`) y entrega `media.url` (usa `S3_PUBLIC_BASE_URL` para URL publica).
+
+WS:
+- Evento `session.messages.media` con `media[]` (`messageId`, `chatJid`, `kind`, `url`, `mime`, `size`, `width`, `height`, `duration`).
+
+Respuesta API:
+- `GET /chats/:jid/messages` incluye `media` cuando el backend termina de subir a S3/R2.
+
+Ejemplo de mensaje con media (API):
+```json
+{
+  "id": "msg-3",
+  "type": "imageMessage",
+  "text": "Foto",
+  "media": {
+    "kind": "image",
+    "url": "https://anna-media.<account-id>.r2.dev/tenants/tenant-1/sessions/session-1/messages/msg-3/photo.jpg",
+    "mime": "image/jpeg",
+    "size": 120483,
+    "width": 720,
+    "height": 1280,
+    "duration": null
+  }
 }
 ```
 
@@ -521,6 +581,9 @@ sequenceDiagram
   Worker-->>Redis: session.messages.edit/delete
   Redis-->>WS: messages edit/delete
   Redis-->>DB: event-consumer actualiza edits/deletes
+  Worker-->>Redis: session.messages.media (uploads)
+  Redis-->>WS: messages media
+  Redis-->>DB: event-consumer persiste session_message_media
 ```
 
 ## Flujo de chats, contactos y mensajes (API)
@@ -551,6 +614,8 @@ sequenceDiagram
   Worker->>WA: send message
   Worker-->>Redis: session.messages.upsert
   Redis-->>DB: persist messages/chats
+  Worker-->>Redis: session.messages.media
+  Redis-->>DB: persist media
 
   Client->>API: POST /chats/:jid/messages/:messageId/reactions
   API->>Redis: session.reactMessage (command)

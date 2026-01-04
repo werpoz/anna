@@ -90,6 +90,13 @@ export const env = {
   sessionsCommandBlockMs: numberOrDefault(process.env.SESSIONS_COMMAND_BLOCK_MS, 5000),
   sessionsCommandBatchSize: numberOrDefault(process.env.SESSIONS_COMMAND_BATCH_SIZE, 25),
   sessionsCommandDlqStream: process.env.SESSIONS_COMMAND_DLQ_STREAM ?? 'session-commands-dlq',
+  s3Endpoint: process.env.S3_ENDPOINT ?? '',
+  s3Region: process.env.S3_REGION ?? 'us-east-1',
+  s3AccessKey: process.env.S3_ACCESS_KEY ?? '',
+  s3SecretKey: process.env.S3_SECRET_KEY ?? '',
+  s3Bucket: process.env.S3_BUCKET ?? '',
+  s3PublicBaseUrl: process.env.S3_PUBLIC_BASE_URL ?? '',
+  s3ForcePathStyle: booleanOrDefault(process.env.S3_FORCE_PATH_STYLE, false),
 };
 
 export const envHelpers = {

@@ -2,6 +2,7 @@ import makeWASocket, {
   Browsers,
   BufferJSON,
   DisconnectReason,
+  downloadMediaMessage,
   extractMessageContent,
   getContentType,
   proto,
@@ -27,6 +28,8 @@ import type {
   SessionMessageDeleteUpdate,
   SessionMessagesReactionPayload,
   SessionMessageReactionUpdate,
+  SessionMessagesMediaPayload,
+  SessionMessageMediaUpdate,
   StartSessionRequest,
   SendSessionMessageRequest,
   ReadSessionMessagesRequest,
@@ -36,6 +39,8 @@ import type {
 } from '@/contexts/Core/Session/application/SessionProvider';
 import { usePostgresAuthState } from '@/contexts/Core/Session/infrastructure/PostgresBaileysAuthState';
 import { logger } from '@/contexts/Shared/infrastructure/observability/logger';
+import { S3Storage } from '@/contexts/Shared/infrastructure/Storage/S3Storage';
+import { env } from '@/contexts/Shared/infrastructure/config/env';
 
 export type BaileysSessionProviderOptions = {
   pool: Pool;
@@ -48,24 +53,30 @@ export type BaileysSessionProviderOptions = {
 type ActiveSession = {
   socket: WASocket;
   handlers: SessionProviderHandlers;
+  tenantId: string;
 };
 
 const MAX_HISTORY_MESSAGES = 200;
 const MAX_UPSERT_MESSAGES = 50;
 const MAX_CONTACTS = 200;
 const MAX_REACTIONS = 200;
+const MAX_MEDIA_DOWNLOADS = 10;
+const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
 
 export class BaileysSessionProvider implements SessionProvider {
   private readonly sessions: Map<string, ActiveSession>;
   private readonly options: BaileysSessionProviderOptions;
   private readonly reconnectAttempts: Map<string, number>;
   private readonly reconnectTimers: Map<string, ReturnType<typeof setTimeout>>;
+  private readonly mediaStorage: S3Storage | null;
 
   constructor(options: BaileysSessionProviderOptions) {
     this.options = options;
     this.sessions = new Map();
     this.reconnectAttempts = new Map();
     this.reconnectTimers = new Map();
+    this.mediaStorage =
+      env.s3Endpoint && env.s3Bucket && env.s3AccessKey && env.s3SecretKey ? new S3Storage() : null;
   }
 
   async start(request: StartSessionRequest): Promise<void> {
@@ -138,6 +149,20 @@ export class BaileysSessionProvider implements SessionProvider {
 
       void request.handlers.onHistorySync(syncPayload);
 
+      if (request.handlers.onMessagesMedia) {
+        const mediaMessages = messages.filter(isMediaMessage).slice(0, MAX_MEDIA_DOWNLOADS);
+        if (mediaMessages.length) {
+          void this.processMediaMessages({
+            sessionId: request.sessionId,
+            tenantId: request.tenantId,
+            socket,
+            messages: mediaMessages,
+            source: 'history',
+            onMessagesMedia: request.handlers.onMessagesMedia,
+          });
+        }
+      }
+
       if (reactions.length && request.handlers.onMessagesReaction) {
         const reactionsPayload: SessionMessagesReactionPayload = {
           reactionsCount: reactions.length,
@@ -178,6 +203,20 @@ export class BaileysSessionProvider implements SessionProvider {
       };
 
       void request.handlers.onMessagesUpsert(upsertPayload);
+
+      if (request.handlers.onMessagesMedia) {
+        const mediaMessages = messages.filter(isMediaMessage).slice(0, MAX_MEDIA_DOWNLOADS);
+        if (mediaMessages.length) {
+          void this.processMediaMessages({
+            sessionId: request.sessionId,
+            tenantId: request.tenantId,
+            socket,
+            messages: mediaMessages,
+            source: 'event',
+            onMessagesMedia: request.handlers.onMessagesMedia,
+          });
+        }
+      }
     });
 
     socket.ev.on('contacts.upsert', (contacts) => {
@@ -332,7 +371,7 @@ export class BaileysSessionProvider implements SessionProvider {
       void request.handlers.onMessagesReaction(reactionsPayload);
     });
 
-    this.sessions.set(request.sessionId, { socket, handlers: request.handlers });
+    this.sessions.set(request.sessionId, { socket, handlers: request.handlers, tenantId: request.tenantId });
   }
 
   async stop(sessionId: string): Promise<void> {
@@ -416,6 +455,110 @@ export class BaileysSessionProvider implements SessionProvider {
         key,
       },
     });
+  }
+
+  private async processMediaMessages(params: {
+    sessionId: string;
+    tenantId: string;
+    socket: WASocket;
+    messages: proto.IWebMessageInfo[];
+    source: 'event' | 'history';
+    onMessagesMedia: (payload: SessionMessagesMediaPayload) => Promise<void> | void;
+  }): Promise<void> {
+    if (!this.mediaStorage) {
+      logger.warn('Media storage not configured; skipping media upload');
+      return;
+    }
+
+    const mediaUpdates: SessionMessageMediaUpdate[] = [];
+    for (const message of params.messages) {
+      const update = await this.uploadMediaMessage({
+        sessionId: params.sessionId,
+        tenantId: params.tenantId,
+        socket: params.socket,
+        message,
+      });
+      if (update) {
+        mediaUpdates.push(update);
+      }
+    }
+
+    if (!mediaUpdates.length) {
+      return;
+    }
+
+    await params.onMessagesMedia({
+      mediaCount: mediaUpdates.length,
+      media: mediaUpdates,
+      source: params.source,
+    });
+  }
+
+  private async uploadMediaMessage(params: {
+    sessionId: string;
+    tenantId: string;
+    socket: WASocket;
+    message: proto.IWebMessageInfo;
+  }): Promise<SessionMessageMediaUpdate | null> {
+    if (!this.mediaStorage) {
+      return null;
+    }
+    const meta = resolveMediaMeta(params.message);
+    if (!meta) {
+      return null;
+    }
+
+    if (meta.size && meta.size > MAX_MEDIA_BYTES) {
+      logger.warn(
+        { messageId: meta.messageId, size: meta.size },
+        'Skipping media download: file too large'
+      );
+      return null;
+    }
+
+    try {
+      const buffer = await downloadMediaMessage(
+        params.message as any,
+        'buffer',
+        {},
+        {
+          logger,
+          reuploadRequest: params.socket.updateMediaMessage,
+        }
+      );
+
+      const fileName = meta.fileName ?? `${meta.messageId}.${resolveExtension(meta.mime)}`;
+      const key = buildMediaKey({
+        tenantId: params.tenantId,
+        sessionId: params.sessionId,
+        messageId: meta.messageId,
+        fileName,
+      });
+
+      const result = await this.mediaStorage.uploadBuffer({
+        key,
+        body: buffer,
+        contentType: meta.mime,
+      });
+
+      return {
+        messageId: meta.messageId,
+        chatJid: meta.chatJid,
+        kind: meta.kind,
+        mime: meta.mime,
+        size: meta.size,
+        fileName,
+        url: result.url,
+        sha256: meta.sha256,
+        width: meta.width,
+        height: meta.height,
+        duration: meta.duration,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn({ err: message, messageId: meta.messageId }, 'Media download/upload failed');
+      return null;
+    }
   }
 
   private clearReconnectState(sessionId: string): void {
@@ -774,6 +917,167 @@ const buildReactionUpdateFromEvent = (
 const isReactionUpdate = (
   value: SessionMessageReactionUpdate | null
 ): value is SessionMessageReactionUpdate => Boolean(value);
+
+type ResolvedMediaMeta = {
+  messageId: string;
+  chatJid: string;
+  kind: 'image' | 'video' | 'audio' | 'document';
+  mime: string | null;
+  size: number | null;
+  fileName: string | null;
+  sha256: string | null;
+  width: number | null;
+  height: number | null;
+  duration: number | null;
+};
+
+const resolveNumberValue = (
+  value: number | bigint | { toNumber?: () => number } | null | undefined
+): number | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'bigint') {
+    return Number(value);
+  }
+  if (typeof value === 'object' && typeof value.toNumber === 'function') {
+    return value.toNumber();
+  }
+  return null;
+};
+
+const toBase64 = (value: Uint8Array | Buffer | null | undefined): string | null => {
+  if (!value) {
+    return null;
+  }
+  return Buffer.from(value).toString('base64');
+};
+
+const resolveMediaMeta = (message: proto.IWebMessageInfo): ResolvedMediaMeta | null => {
+  const key = message.key ?? {};
+  const messageId = key.id ?? '';
+  const chatJid = key.remoteJid ?? '';
+  if (!messageId || !chatJid) {
+    return null;
+  }
+
+  const content = extractMessageContent(message.message);
+  const contentType = getContentType(content);
+  if (!contentType) {
+    return null;
+  }
+
+  if (contentType === 'imageMessage') {
+    const image = content?.imageMessage;
+    if (!image) {
+      return null;
+    }
+    return {
+      messageId,
+      chatJid,
+      kind: 'image',
+      mime: image.mimetype ?? null,
+      size: resolveNumberValue(image.fileLength),
+      fileName: null,
+      sha256: toBase64(image.fileSha256),
+      width: image.width ?? null,
+      height: image.height ?? null,
+      duration: null,
+    };
+  }
+
+  if (contentType === 'videoMessage') {
+    const video = content?.videoMessage;
+    if (!video) {
+      return null;
+    }
+    return {
+      messageId,
+      chatJid,
+      kind: 'video',
+      mime: video.mimetype ?? null,
+      size: resolveNumberValue(video.fileLength),
+      fileName: null,
+      sha256: toBase64(video.fileSha256),
+      width: video.width ?? null,
+      height: video.height ?? null,
+      duration: resolveNumberValue(video.seconds) ?? null,
+    };
+  }
+
+  if (contentType === 'audioMessage') {
+    const audio = content?.audioMessage;
+    if (!audio) {
+      return null;
+    }
+    return {
+      messageId,
+      chatJid,
+      kind: 'audio',
+      mime: audio.mimetype ?? null,
+      size: resolveNumberValue(audio.fileLength),
+      fileName: null,
+      sha256: toBase64(audio.fileSha256),
+      width: null,
+      height: null,
+      duration: resolveNumberValue(audio.seconds) ?? null,
+    };
+  }
+
+  if (contentType === 'documentMessage') {
+    const doc = content?.documentMessage;
+    if (!doc) {
+      return null;
+    }
+    return {
+      messageId,
+      chatJid,
+      kind: 'document',
+      mime: doc.mimetype ?? null,
+      size: resolveNumberValue(doc.fileLength),
+      fileName: doc.fileName ?? null,
+      sha256: toBase64(doc.fileSha256),
+      width: null,
+      height: null,
+      duration: null,
+    };
+  }
+
+  return null;
+};
+
+const isMediaMessage = (message: proto.IWebMessageInfo): boolean => Boolean(resolveMediaMeta(message));
+
+const resolveExtension = (mime: string | null | undefined): string => {
+  if (!mime) {
+    return 'bin';
+  }
+  const normalized = mime.split(';')[0]?.trim() ?? mime;
+  const map: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'video/mp4': 'mp4',
+    'audio/ogg': 'ogg',
+    'audio/mpeg': 'mp3',
+    'audio/mp4': 'm4a',
+    'application/pdf': 'pdf',
+  };
+  return map[normalized] ?? normalized.split('/')[1] ?? 'bin';
+};
+
+const sanitizeFileName = (value: string): string => value.replace(/[\\/]/g, '_');
+
+const buildMediaKey = (params: {
+  tenantId: string;
+  sessionId: string;
+  messageId: string;
+  fileName: string;
+}): string =>
+  `tenants/${params.tenantId}/sessions/${params.sessionId}/messages/${params.messageId}/${sanitizeFileName(params.fileName)}`;
 
 const resolveDisconnectReason = (error: unknown): string => {
   const statusCode = (error as { output?: { statusCode?: number } })?.output?.statusCode;

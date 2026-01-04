@@ -9,6 +9,7 @@ import { PersistSessionMessageStatusOnSessionMessagesUpdate } from '@/contexts/C
 import { PersistSessionMessageEditsOnSessionMessagesEdit } from '@/contexts/Core/Session/infrastructure/PersistSessionMessageEditsOnSessionMessagesEdit';
 import { PersistSessionMessageDeletesOnSessionMessagesDelete } from '@/contexts/Core/Session/infrastructure/PersistSessionMessageDeletesOnSessionMessagesDelete';
 import { PersistSessionMessageReactionsOnSessionMessagesReaction } from '@/contexts/Core/Session/infrastructure/PersistSessionMessageReactionsOnSessionMessagesReaction';
+import { PersistSessionMessageMediaOnSessionMessagesMedia } from '@/contexts/Core/Session/infrastructure/PersistSessionMessageMediaOnSessionMessagesMedia';
 
 container.register(TOKENS.DomainEventSubscribers, {
   useClass: PersistSessionHistoryOnSessionHistorySync,
@@ -36,4 +37,7 @@ container.register(TOKENS.DomainEventSubscribers, {
 });
 container.register(TOKENS.DomainEventSubscribers, {
   useClass: PersistSessionMessageReactionsOnSessionMessagesReaction,
+});
+container.register(TOKENS.DomainEventSubscribers, {
+  useClass: PersistSessionMessageMediaOnSessionMessagesMedia,
 });

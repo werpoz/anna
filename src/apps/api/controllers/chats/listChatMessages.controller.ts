@@ -140,11 +140,34 @@ export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatContr
           messageIds,
         })
       : [];
+    const media = messageIds.length
+      ? await deps.mediaRepository.listByMessageIds({
+          sessionId: resolvedSessionId,
+          messageIds,
+        })
+      : [];
 
     const reactionsByMessage = reactions.reduce<Record<string, typeof reactions>>((acc, reaction) => {
       const bucket = acc[reaction.messageId] ?? [];
       bucket.push(reaction);
       acc[reaction.messageId] = bucket;
+      return acc;
+    }, {});
+
+    const mediaByMessage = media.reduce<Record<string, Array<Record<string, unknown>>>>((acc, item) => {
+      const bucket = acc[item.messageId] ?? [];
+      bucket.push({
+        kind: item.kind,
+        url: item.url,
+        mime: item.mime,
+        size: item.size,
+        fileName: item.fileName,
+        width: item.width,
+        height: item.height,
+        duration: item.duration,
+        sha256: item.sha256,
+      });
+      acc[item.messageId] = bucket;
       return acc;
     }, {});
 
@@ -162,6 +185,7 @@ export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatContr
       isDeleted: item.isDeleted,
       deletedAt: item.deletedAt?.toISOString() ?? null,
       reactions: reactionsByMessage[item.messageId] ?? [],
+      media: mediaByMessage[item.messageId]?.[0] ?? null,
       replyTo: extractReplyInfo(item.raw),
       forward: extractForwardInfo(item.raw),
       raw: includeRaw ? item.raw : undefined,

@@ -29,6 +29,7 @@ const {
   sessionChatRepository,
   sessionContactRepository,
   sessionMessageReactionRepository,
+  sessionMessageMediaRepository,
 } = buildAppContext();
 
 const app = new Hono<AppEnv>();
@@ -57,6 +58,7 @@ registerChatRoutes(app, {
   messageRepository: sessionMessageRepository,
   chatRepository: sessionChatRepository,
   reactionRepository: sessionMessageReactionRepository,
+  mediaRepository: sessionMessageMediaRepository,
 });
 registerContactRoutes(app, {
   sessionRepository,

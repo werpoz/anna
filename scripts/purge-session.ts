@@ -30,6 +30,7 @@ const main = async (): Promise<void> => {
     if (purgeAll) {
       await pool.query('DELETE FROM session_messages');
       await pool.query('DELETE FROM session_message_reactions');
+      await pool.query('DELETE FROM session_message_media');
       await pool.query('DELETE FROM session_chats');
       await pool.query('DELETE FROM session_auth_keys');
       await pool.query('DELETE FROM session_auth_creds');
@@ -40,6 +41,7 @@ const main = async (): Promise<void> => {
     } else {
       await pool.query('DELETE FROM session_messages WHERE session_id = $1::uuid', [sessionId]);
       await pool.query('DELETE FROM session_message_reactions WHERE session_id = $1::uuid', [sessionId]);
+      await pool.query('DELETE FROM session_message_media WHERE session_id = $1::uuid', [sessionId]);
       await pool.query('DELETE FROM session_chats WHERE session_id = $1::uuid', [sessionId]);
       await pool.query('DELETE FROM session_auth_keys WHERE session_id = $1', [sessionId]);
       await pool.query('DELETE FROM session_auth_creds WHERE session_id = $1', [sessionId]);

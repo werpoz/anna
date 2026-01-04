@@ -1,28 +1,41 @@
 # Frontend (Anna Sessions Console)
 
 ## Objetivo
-Construir un cliente web estilo WhatsApp Web (solo texto) conectado al backend actual: sesiones, chats, mensajes, contactos y estados de entrega/lectura via WebSocket.
+Construir un cliente web estilo WhatsApp Web (texto + media basica) conectado al backend actual: sesiones, chats, mensajes, contactos, estados de entrega/lectura y eventos en tiempo real via WebSocket.
+
+## Configuracion local (frontend)
+- `VITE_API_BASE_URL=http://localhost:3000` (o el host del backend).
+- El refresh usa cookie HTTP-only -> siempre enviar `credentials: 'include'`.
+- Si frontend y backend estan en dominios distintos, habilitar CORS en backend y usar `AUTH_COOKIE_SAMESITE=None` + `AUTH_COOKIE_SECURE=true`.
 
 ## Flujo base
 1) Autenticacion con `POST /auth/login` y refresh automatico (`POST /auth/refresh`).
 2) Conectar WS `ws://<host>/ws/sessions?accessToken=<token>`.
 3) Recibir `session.snapshot` y decidir estado inicial (connected / pending_qr / disconnected).
-4) Si connected: cargar `GET /chats` + `GET /contacts`.
-5) Actualizar UI en tiempo real con eventos WS.
+4) Si no hay sesion activa: `POST /sessions` para iniciar y esperar `session.qr.updated`.
+5) Si connected: cargar `GET /chats` + `GET /contacts`.
+6) Actualizar UI en tiempo real con eventos WS.
 
 ## Modelo de datos (cliente)
 ChatSummary:
-- `chatJid`, `chatName`, `lastMessageText`, `lastMessageTs`, `unreadCount`
+- `chatJid`, `chatName`, `lastMessageId`, `lastMessageType`, `lastMessageText`, `lastMessageTs`, `unreadCount`
 
 Contact:
-- `contactJid`, `name`, `notify`, `imgUrl`, `status`
+- `contactJid`, `contactLid`, `phoneNumber`, `name`, `notify`, `verifiedName`, `imgUrl`, `status`
 
 Message:
 - `id`, `fromMe`, `text`, `timestamp`, `status`, `statusAt`, `senderJid`
 - `isEdited`, `editedAt`, `isDeleted`, `deletedAt`
 - `reactions`: `{ emoji, count, actors[] }[]`
+- `media`: `{ kind, url, mime, size, fileName, width, height, duration } | null`
 - `replyTo`: `{ messageId, participant, type, text } | null`
 - `forward`: `{ isForwarded, forwardingScore } | null`
+
+## Estados y bootstrap de sesion
+- `session.snapshot` llega al abrir WS y define el estado inicial.
+- Si la sesion ya esta `connected`, no mostrar QR.
+- Si esta `pending_qr` o no hay sesion: mostrar boton "Start session" y luego el QR.
+- La UI debe tolerar que el WS llegue antes que los datos de `/chats` y `/contacts`.
 
 ## Eventos WS a consumir
 - `session.snapshot` -> estado inicial.
@@ -34,8 +47,49 @@ Message:
 - `session.messages.edit` -> actualizar texto/tipo y flag editado.
 - `session.messages.delete` -> marcar mensajes como borrados.
 - `session.messages.reaction` -> actualizar reacciones por mensaje.
+- `session.messages.media` -> asignar `media` cuando se completa upload.
 - `session.contacts.upsert` -> actualizar contactos.
 - `session.presence.update` -> estado de presencia/typing.
+
+## Payloads WS (minimo viable)
+Snapshot:
+```
+{
+  "type": "session.snapshot",
+  "sessionId": "<uuid>",
+  "payload": { "tenantId": "<uuid>", "session": { "id": "...", "status": "...", ... } }
+}
+```
+
+QR:
+```
+{
+  "type": "session.qr.updated",
+  "sessionId": "<uuid>",
+  "payload": { "qr": "base64", "expiresAt": "2026-01-01T00:00:00.000Z" }
+}
+```
+
+Mensajes (upsert):
+```
+{
+  "type": "session.messages.upsert",
+  "sessionId": "<uuid>",
+  "payload": { "messagesCount": 3, "messages": [{ "id": "...", "remoteJid": "...", ... }] }
+}
+```
+
+Media (cuando termina upload):
+```
+{
+  "type": "session.messages.media",
+  "sessionId": "<uuid>",
+  "payload": {
+    "mediaCount": 1,
+    "media": [{ "messageId": "...", "chatJid": "...", "kind": "image", "url": "..." }]
+  }
+}
+```
 
 ## Como aplicar features tipo WhatsApp Web (ideas practicas)
 
@@ -80,6 +134,17 @@ Reacciones:
 - WS `session.messages.reaction` informa cambios (agregar/quitar).
 - UI: agrupa por emoji y muestra contador.
 - Usa `actors[]` para mostrar nombres (con `GET /contacts` como lookup).
+
+Media (imagen/video/audio/documento):
+- `GET /chats/:jid/messages` incluye `media` cuando el backend termina de subir a S3/R2.
+- WS `session.messages.media` actualiza mensajes recientes sin recargar.
+- UI:
+  - image: `<img src=media.url />`
+  - video: `<video controls src=media.url />`
+  - audio: `<audio controls src=media.url />`
+  - document: link con nombre y tamaño.
+- `media.url` es publica (R2 bucket publico o dominio custom).
+- Si `type` es media pero `media` es `null`, mostrar placeholder y actualizar cuando llegue `session.messages.media`.
 
 Ejemplo de merge en store:
 ```
@@ -224,6 +289,25 @@ const connectWs = (token) => {
 }
 ```
 
+Reconexion WS (idea basica):
+```jsx
+const connectWithRetry = (token, onEvent) => {
+  let ws
+  let attempt = 0
+  const connect = () => {
+    ws = connectWs(token)
+    ws.onmessage = (event) => onEvent(JSON.parse(event.data))
+    ws.onclose = () => {
+      attempt += 1
+      const delay = Math.min(1000 * attempt, 15000)
+      setTimeout(connect, delay)
+    }
+  }
+  connect()
+  return () => ws?.close()
+}
+```
+
 Listar chats y mensajes:
 ```jsx
 const loadChats = async () => apiFetch('/chats')
@@ -285,6 +369,26 @@ const reactMessage = async (jid, messageId, emoji) =>
   })
 ```
 
+Merge media en store:
+```jsx
+const applyMedia = (items) => {
+  for (const media of items) {
+    const msg = findMessage(media.messageId)
+    if (!msg) continue
+    msg.media = {
+      kind: media.kind,
+      url: media.url,
+      mime: media.mime,
+      size: media.size,
+      fileName: media.fileName,
+      width: media.width,
+      height: media.height,
+      duration: media.duration,
+    }
+  }
+}
+```
+
 Merge de WS en store (ejemplo directo):
 ```jsx
 const handleWsEvent = (event) => {
@@ -294,6 +398,9 @@ const handleWsEvent = (event) => {
       break
     case 'session.messages.reaction':
       applyReactions(event.payload.reactions)
+      break
+    case 'session.messages.media':
+      applyMedia(event.payload.media)
       break
     case 'session.messages.edit':
       applyEdits(event.payload.edits)
@@ -397,6 +504,7 @@ Fase 2 (texto avanzado):
 - Reply (mostrar quoted message).
 - Forward (flag + contador).
 - Reacciones (emoji + contador).
+- Media basica (imagen/video/audio/document).
 - Busqueda local en chats/mensajes.
 - Marcado de leido (UI optimista + POST /chats/:jid/read).
 - Edicion/borrado (actualizar por WS).
