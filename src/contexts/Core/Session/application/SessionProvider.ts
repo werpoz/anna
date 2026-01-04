@@ -34,7 +34,7 @@ export type SessionMessageKey = {
 };
 
 export type SessionMessageMediaInput = {
-  kind: 'image' | 'video' | 'audio' | 'document';
+  kind: 'image' | 'video' | 'audio' | 'document' | 'sticker';
   url: string;
   mime?: string | null;
   fileName?: string | null;
@@ -153,7 +153,7 @@ export type SessionMessagesReactionPayload = {
 export type SessionMessageMediaUpdate = {
   messageId: string;
   chatJid?: string;
-  kind: 'image' | 'video' | 'audio' | 'document';
+  kind: 'image' | 'video' | 'audio' | 'document' | 'sticker';
   mime?: string | null;
   size?: number | null;
   fileName?: string | null;

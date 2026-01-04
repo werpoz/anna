@@ -136,7 +136,7 @@ Reacciones:
 - UI: agrupa por emoji y muestra contador.
 - Usa `actors[]` para mostrar nombres (con `GET /contacts` como lookup).
 
-Media (imagen/video/audio/documento):
+Media (imagen/video/audio/documento/sticker):
 - `GET /chats/:jid/messages` incluye `media` cuando el backend termina de subir a S3/R2.
 - WS `session.messages.media` actualiza mensajes recientes sin recargar.
 - UI:
@@ -144,12 +144,14 @@ Media (imagen/video/audio/documento):
   - video: `<video controls src=media.url />`
   - audio: `<audio controls src=media.url />`
   - document: link con nombre y tamaño.
+  - sticker: `<img src=media.url />` (normalmente webp, sin caption).
 - `media.url` es publica (R2 bucket publico o dominio custom).
 - Si `type` es media pero `media` es `null`, mostrar placeholder y actualizar cuando llegue `session.messages.media`.
 
 Enviar media (flujo recomendado):
 1) `POST /media` (multipart) con `file`, `kind` y `sessionId` opcional.
 2) `POST /chats/:jid/messages` con `{ media, caption }`.
+   - Para `sticker` usa `kind=sticker` y `mime=image/webp` (sin caption).
 
 Ejemplo de merge en store:
 ```
@@ -468,6 +470,7 @@ Reply/Forward:
 - Para enviar:
   - Reply: `POST /chats/:jid/messages` con `content` + `replyToMessageId`.
   - Forward: `POST /chats/:jid/messages` con `forwardMessageId` (sin content).
+- Si `replyTo.text` es `null`, usar `replyTo.type` para mostrar placeholder (`Imagen`, `Video`, `Documento`, `Sticker`, `Audio`).
 
 Contactos:
 - `session.contacts.upsert` actualiza nombres, foto y status.

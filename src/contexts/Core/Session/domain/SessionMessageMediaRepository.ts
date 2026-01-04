@@ -4,7 +4,7 @@ export type SessionMessageMediaRecord = {
   sessionId: string;
   chatJid: string;
   messageId: string;
-  kind: 'image' | 'video' | 'audio' | 'document';
+  kind: 'image' | 'video' | 'audio' | 'document' | 'sticker';
   mime: string | null;
   size: number | null;
   fileName: string | null;

@@ -932,7 +932,7 @@ const isReactionUpdate = (
 type ResolvedMediaMeta = {
   messageId: string;
   chatJid: string;
-  kind: 'image' | 'video' | 'audio' | 'document';
+  kind: 'image' | 'video' | 'audio' | 'document' | 'sticker';
   mime: string | null;
   size: number | null;
   fileName: string | null;
@@ -1057,6 +1057,25 @@ const resolveMediaMeta = (message: proto.IWebMessageInfo): ResolvedMediaMeta | n
     };
   }
 
+  if (contentType === 'stickerMessage') {
+    const sticker = content?.stickerMessage;
+    if (!sticker) {
+      return null;
+    }
+    return {
+      messageId,
+      chatJid,
+      kind: 'sticker',
+      mime: sticker.mimetype ?? null,
+      size: resolveNumberValue(sticker.fileLength),
+      fileName: null,
+      sha256: toBase64(sticker.fileSha256),
+      width: (sticker as { width?: number }).width ?? null,
+      height: (sticker as { height?: number }).height ?? null,
+      duration: null,
+    };
+  }
+
   return null;
 };
 
@@ -1110,7 +1129,7 @@ const resolveDisconnectReason = (error: unknown): string => {
 
 const buildMediaMessage = (params: {
   media: {
-    kind: 'image' | 'video' | 'audio' | 'document';
+    kind: 'image' | 'video' | 'audio' | 'document' | 'sticker';
     url: string;
     mime?: string | null;
     fileName?: string | null;
@@ -1142,6 +1161,13 @@ const buildMediaMessage = (params: {
       audio: { url: media.url },
       mimetype: mime,
       ptt,
+    };
+  }
+
+  if (media.kind === 'sticker') {
+    return {
+      sticker: { url: media.url },
+      mimetype: mime,
     };
   }
 

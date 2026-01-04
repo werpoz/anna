@@ -29,7 +29,7 @@ Entidades y persistencia clave:
 - `Session`: estado (`pending_qr`, `connected`, `disconnected`), `phone`, `tenantId`.
 - `session_messages`: historial por chat con `message_id`, `from_me`, `timestamp`, `raw`, `status`, `is_edited`, `is_deleted`.
 - `session_message_reactions`: reacciones por mensaje (emoji, actor, removed).
-- `session_message_media`: media por mensaje (url, mime, size, dimensiones).
+- `session_message_media`: media por mensaje (url, mime, size, dimensiones; incluye stickers).
 - `session_chats`: resumen por chat (`lastMessageTs`, `lastMessageText`, `unreadCount`).
 - `session_contacts`: contactos/perfiles por sesion (`name`, `notify`, `imgUrl`, `status`).
 
@@ -106,6 +106,7 @@ Endpoints actuales relevantes:
 - `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`.
 - `POST /sessions`, `POST /sessions/:id/stop`, `DELETE /sessions/:id`, `POST /sessions/:id/messages`.
 - `GET /chats`, `GET /chats/:jid/messages`, `POST /chats/:jid/messages`.
+- `POST /media` (upload multipart).
 - `POST /chats/:jid/read`, `PATCH /chats/:jid/messages/:messageId`, `DELETE /chats/:jid/messages/:messageId`.
 - `POST /chats/:jid/messages/:messageId/reactions`.
 - `GET /contacts`.

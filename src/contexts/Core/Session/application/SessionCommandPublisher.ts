@@ -19,7 +19,7 @@ export type SendSessionMessageCommand = {
   to: string;
   content?: string;
   media?: {
-    kind: 'image' | 'video' | 'audio' | 'document';
+    kind: 'image' | 'video' | 'audio' | 'document' | 'sticker';
     url: string;
     mime?: string | null;
     fileName?: string | null;

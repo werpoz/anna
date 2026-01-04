@@ -27,12 +27,17 @@ const resolveExtension = (mime: string | null | undefined): string => {
   return map[normalized] ?? normalized.split('/')[1] ?? 'bin';
 };
 
-const resolveMediaKind = (value: FormDataEntryValue | null): 'image' | 'video' | 'audio' | 'document' | null => {
-  if (!value) {
+type MediaKind = 'image' | 'video' | 'audio' | 'document' | 'sticker';
+
+const isMediaKind = (value: string): value is MediaKind =>
+  value === 'image' || value === 'video' || value === 'audio' || value === 'document' || value === 'sticker';
+
+const resolveMediaKind = (value: unknown): MediaKind | null => {
+  if (!value || typeof value !== 'string') {
     return null;
   }
-  const kind = value.toString().toLowerCase();
-  if (kind === 'image' || kind === 'video' || kind === 'audio' || kind === 'document') {
+  const kind = value.toLowerCase();
+  if (isMediaKind(kind)) {
     return kind;
   }
   return null;
@@ -58,7 +63,7 @@ export const registerUploadMediaRoute = (app: Hono<AppEnv>, deps: MediaControlle
     const sessionIdParam = form.get('sessionId')?.toString() ?? c.req.query('sessionId');
 
     if (!kind) {
-      return c.json({ message: 'kind is required (image|video|audio|document)' }, 400);
+      return c.json({ message: 'kind is required (image|video|audio|document|sticker)' }, 400);
     }
 
     if (!(file instanceof File)) {

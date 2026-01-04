@@ -371,7 +371,7 @@ Ejemplo de mensaje con reacciones (API):
 ## Media (backend)
 
 Soportado:
-- `image`, `video`, `audio`, `document`.
+- `image`, `video`, `audio`, `document`, `sticker` (webp).
 Almacenamiento:
 - Sube a S3/R2 (`S3_*`) y entrega `media.url` (usa `S3_PUBLIC_BASE_URL` para URL publica).
 

@@ -47,10 +47,9 @@ Leyenda:
 | Contactos / perfiles | Soportado | `GET /contacts`, `session.contacts.upsert` |
 | Presencia / typing | Soportado | `session.presence.update` |
 | Multi-sesion por tenant | Parcial | Backend soporta multiples sesiones; frontend aun no |
-| Imagen / Video / Audio / Document | Soportado | `media` en `GET /chats/:jid/messages` + `session.messages.media` |
-| Notas de voz | Pendiente | - |
+| Imagen / Video / Audio / Document / Sticker | Soportado | `media` en `GET /chats/:jid/messages` + `session.messages.media` |
+| Notas de voz | Soportado | `ptt=true` en envio de audio |
 | Reacciones | Soportado | `POST /chats/:jid/messages/:messageId/reactions` + `session.messages.reaction` |
-| Stickers | Pendiente | - |
 | Estados (stories) | Pendiente | - |
 | Llamadas | Pendiente | - |
 
@@ -350,7 +349,7 @@ curl "http://localhost:3000/chats/<jid>/messages?limit=50" \
 ```
 Respuesta incluye `status`, `statusAt`, `replyTo` y `forward` cuando aplica.
 Tambien incluye `isEdited`, `editedAt`, `isDeleted`, `deletedAt`.
-Incluye `media` si el mensaje tiene imagen/video/audio/documento y el upload ya termino.
+Incluye `media` si el mensaje tiene imagen/video/audio/documento/sticker y el upload ya termino.
 
 Enviar mensaje por chat:
 ```bash

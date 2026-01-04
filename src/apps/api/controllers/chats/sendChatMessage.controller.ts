@@ -22,13 +22,18 @@ type SendChatMessagePayload = {
   forwardMessageId?: string;
 };
 
+type MediaKind = 'image' | 'video' | 'audio' | 'document' | 'sticker';
+
+const isMediaKind = (value: string): value is MediaKind =>
+  value === 'image' || value === 'video' || value === 'audio' || value === 'document' || value === 'sticker';
+
 const normalizeMedia = (payload: SendChatMessagePayload) => {
   const media = payload.media ?? null;
   if (!media) {
     return null;
   }
   const kind = media.kind?.toLowerCase();
-  if (kind !== 'image' && kind !== 'video' && kind !== 'audio' && kind !== 'document') {
+  if (!kind || !isMediaKind(kind)) {
     return null;
   }
   if (!media.url) {
@@ -50,8 +55,8 @@ export const registerSendChatMessageRoute = (app: Hono<AppEnv>, deps: ChatContro
       return c.json({ message: 'missing access token' }, 401);
     }
 
-    const payload = await parseRequestBody<SendChatMessagePayload>(c);
-    const media = normalizeMedia(payload ?? {});
+    const payload = (await parseRequestBody<SendChatMessagePayload>(c)) ?? {};
+    const media = normalizeMedia(payload);
     if (payload?.replyToMessageId && payload?.forwardMessageId) {
       return c.json({ message: 'replyToMessageId and forwardMessageId cannot be combined' }, 400);
     }

@@ -189,6 +189,19 @@ Content-Type: application/json
   "ptt": true
 }
 
+### Hono - send sticker message
+POST http://localhost:3000/chats/<jid>/messages
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "media": {
+    "kind": "sticker",
+    "url": "https://.../sticker.webp",
+    "mime": "image/webp"
+  }
+}
+
 ### Hono - mark chat messages read
 POST http://localhost:3000/chats/<jid>/read
 Authorization: Bearer <access_token>
