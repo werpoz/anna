@@ -443,21 +443,24 @@ WebSocket de eventos (solo sesiones del tenant autenticado):
 ws://localhost:3000/ws/sessions?accessToken=<accessToken>
 ```
 
-Eventos esperados:
-- `session.snapshot` (al conectar WS)
-- `session.created`
-- `session.qr.updated`
-- `session.status.connected`
-- `session.status.disconnected`
-- `session.history.sync`
-- `session.messages.upsert`
-- `session.messages.update`
-- `session.messages.edit`
-- `session.messages.delete`
-- `session.messages.reaction`
-- `session.messages.media`
-- `session.contacts.upsert`
-- `session.presence.update`
+Eventos esperados (WebSocket):
+
+| Evento | Cuando se emite | Payload clave |
+| --- | --- | --- |
+| `session.snapshot` | al conectar WS | `session`, `tenantId` |
+| `session.created` | sesion creada | `sessionId`, `tenantId` |
+| `session.qr.updated` | QR nuevo | `qr`, `expiresAt` |
+| `session.status.connected` | sesion conectada | `phone`, `connectedAt` |
+| `session.status.disconnected` | sesion desconectada | `reason`, `disconnectedAt` |
+| `session.history.sync` | sync inicial | `syncType`, `progress`, `messages[]` |
+| `session.messages.upsert` | mensajes en tiempo real | `messages[]` |
+| `session.messages.update` | receipts/estados | `updates[]` |
+| `session.messages.edit` | edicion de mensajes | `edits[]` |
+| `session.messages.delete` | borrado mensaje/chat | `scope`, `deletes[]` |
+| `session.messages.reaction` | reacciones | `reactions[]` |
+| `session.messages.media` | media subida | `media[]` |
+| `session.contacts.upsert` | contactos/perfiles | `contacts[]` |
+| `session.presence.update` | presencia/typing | `updates[]` |
 
 Notas de historial/mensajes:
 - `session.history.sync` incluye resumen de chats/contacts/mensajes (limitado en tamaño).

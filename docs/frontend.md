@@ -356,6 +356,30 @@ const sendMediaMessage = async (jid, file, kind, caption, sessionId) => {
   })
 }
 
+const sendAudioMessage = async (jid, file, sessionId, asVoiceNote = false) => {
+  const { media } = await uploadMedia(file, 'audio', sessionId)
+  return apiFetch(`/chats/${encodeURIComponent(jid)}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ media, ptt: asVoiceNote }),
+  })
+}
+
+const sendDocumentMessage = async (jid, file, caption, sessionId) => {
+  const { media } = await uploadMedia(file, 'document', sessionId)
+  return apiFetch(`/chats/${encodeURIComponent(jid)}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ media, caption }),
+  })
+}
+
+const sendStickerMessage = async (jid, file, sessionId) => {
+  const { media } = await uploadMedia(file, 'sticker', sessionId)
+  return apiFetch(`/chats/${encodeURIComponent(jid)}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ media }),
+  })
+}
+
 const sendReply = async (jid, content, replyToMessageId) =>
   apiFetch(`/chats/${encodeURIComponent(jid)}/messages`, {
     method: 'POST',
@@ -367,6 +391,44 @@ const sendForward = async (jid, forwardMessageId) =>
     method: 'POST',
     body: JSON.stringify({ forwardMessageId }),
   })
+```
+
+## Payloads de envio por tipo (API)
+
+Texto:
+```json
+{ "content": "Hola" }
+```
+
+Imagen/Video con caption:
+```json
+{
+  "media": { "kind": "image", "url": "https://.../photo.jpg", "mime": "image/jpeg", "fileName": "photo.jpg" },
+  "caption": "Foto"
+}
+```
+
+Audio (nota de voz):
+```json
+{
+  "media": { "kind": "audio", "url": "https://.../audio.ogg", "mime": "audio/ogg" },
+  "ptt": true
+}
+```
+
+Documento:
+```json
+{
+  "media": { "kind": "document", "url": "https://.../file.pdf", "mime": "application/pdf", "fileName": "file.pdf" },
+  "caption": "Adjunto"
+}
+```
+
+Sticker:
+```json
+{
+  "media": { "kind": "sticker", "url": "https://.../sticker.webp", "mime": "image/webp" }
+}
 ```
 
 Marcar como leido / editar / borrar:
