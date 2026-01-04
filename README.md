@@ -11,6 +11,7 @@ Base para un SaaS de sesiones de WhatsApp. Incluye API (Hono), workers para outb
 - Levantar en produccion
 - Endpoints rapidos
 - Flujo de login
+- Comparativa WhatsApp Web
 - Observabilidad
 - Documentacion
 - Scripts
@@ -20,6 +21,38 @@ Base para un SaaS de sesiones de WhatsApp. Incluye API (Hono), workers para outb
 - Bun v1.3.x
 - Docker (Dragonfly y Postgres)
 - psql opcional (si no usas el runner)
+
+## Comparativa WhatsApp Web
+Estado actual del backend frente a funcionalidades tipicas de WhatsApp Web.
+
+Leyenda:
+- Soportado: disponible y documentado.
+- Parcial: disponible solo backend o con limitaciones.
+- Pendiente: no implementado.
+
+| Feature | Estado | Notas |
+| --- | --- | --- |
+| Login + refresh token | Soportado | `/auth/login`, `/auth/refresh` |
+| QR de sesion | Soportado | `session.qr.updated` |
+| Estado conectado/desconectado | Soportado | `session.status.connected/disconnected` |
+| Sync historial inicial | Soportado | `session.history.sync` |
+| Lista de chats | Soportado | `GET /chats` |
+| Mensajes por chat | Soportado | `GET /chats/:jid/messages` |
+| Envio de texto | Soportado | `POST /chats/:jid/messages` |
+| Reply / Forward | Soportado | `replyToMessageId`, `forwardMessageId` |
+| Estados de entrega/lectura | Soportado | `session.messages.update` |
+| Lecturas reales | Soportado | `POST /chats/:jid/read` |
+| Edicion de mensajes | Soportado | `PATCH /chats/:jid/messages/:messageId` + `session.messages.edit` |
+| Borrado de mensajes | Soportado | `DELETE /chats/:jid/messages/:messageId` + `session.messages.delete` |
+| Contactos / perfiles | Soportado | `GET /contacts`, `session.contacts.upsert` |
+| Presencia / typing | Soportado | `session.presence.update` |
+| Multi-sesion por tenant | Parcial | Backend soporta multiples sesiones; frontend aun no |
+| Media (imagenes/video/docs) | Pendiente | Solo texto por ahora |
+| Notas de voz | Pendiente | - |
+| Reacciones | Pendiente | - |
+| Stickers | Pendiente | - |
+| Estados (stories) | Pendiente | - |
+| Llamadas | Pendiente | - |
 
 ## Instalacion
 
