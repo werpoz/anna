@@ -46,10 +46,12 @@ Defaults (sobrescribibles por env):
 - `OTEL_SERVICE_NAME=anna`
 - `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318/v1/traces`
 - `APP_BASE_URL=http://localhost:3000`
+- `CORS_ORIGINS=http://localhost:5173`
 - `AUTH_JWT_SECRET=dev-secret-change-me`
 - `AUTH_ACCESS_TOKEN_TTL_MS=900000`
 - `AUTH_REFRESH_TOKEN_TTL_MS=2592000000`
 - `AUTH_REFRESH_COOKIE_NAME=refresh_token`
+- `AUTH_COOKIE_SAMESITE=Strict`
 - `AUTH_COOKIE_SECURE=false`
 - `AUTH_PASSWORD_RESET_TTL_MS=3600000`
 - `METRICS_PORT=9100`
@@ -91,6 +93,8 @@ docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0002__refresh_tokens.sql
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0003__session_auth.sql
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0004__sessions.sql
+docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0005__session_messages.sql
+docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0006__session_chats.sql
 ```
 
 Runner de migraciones (usa `DATABASE_URL`):
@@ -117,6 +121,17 @@ bun run worker:events
 bun run worker:sessions
 bun run app:hono
 ```
+
+4) Frontend (Vite + React):
+```bash
+cd src/apps/web
+bun install
+bun run dev
+```
+Opcional: define `VITE_API_BASE_URL` si la API no corre en `http://localhost:3000`.
+UI:
+- `http://localhost:5173/login`
+- `http://localhost:5173/console`
 
 ## Levantar en produccion
 1) Provisiona Postgres y Redis, y define variables reales:
@@ -229,6 +244,31 @@ curl -X POST http://localhost:3000/sessions/<sessionId>/messages \
   -d '{"to":"<jid>","content":"Hola!"}'
 ```
 
+## Chats (backend)
+Listar chats (usa la sesion mas reciente del tenant):
+```bash
+curl http://localhost:3000/chats \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
+Paginado de mensajes por chat:
+```bash
+curl "http://localhost:3000/chats/<jid>/messages?limit=50" \
+  -H 'Authorization: Bearer <accessToken>'
+```
+
+Enviar mensaje por chat:
+```bash
+curl -X POST http://localhost:3000/chats/<jid>/messages \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"Hola!"}'
+```
+
+Notas:
+- Requiere `worker:events` activo para que `session_chats` y `session_messages` se actualicen.
+- Puedes forzar una sesion especifica con `?sessionId=<uuid>` en `GET /chats` y `GET /chats/:jid/messages`.
+
 WebSocket de eventos (solo sesiones del tenant autenticado):
 ```
 ws://localhost:3000/ws/sessions?accessToken=<accessToken>
@@ -246,8 +286,15 @@ Notas de historial/mensajes:
 - `session.history.sync` incluye resumen de chats/contacts/mensajes (limitado en tamaño).
 - `session.messages.upsert` incluye un resumen corto de mensajes en tiempo real.
 
-Demo UI:
-- `http://localhost:3000/demo/sessions`
+Persistencia:
+- El `event-consumer` persiste `session.history.sync` y `session.messages.upsert` en Postgres.
+- Tablas: `session_messages` (historial) y `session_chats` (resumen por chat).
+
+Frontend (Vite + React):
+- `src/apps/web`
+
+Nota CORS:
+- Si el frontend corre en otro dominio, configura `CORS_ORIGINS`, `AUTH_COOKIE_SAMESITE=None` y `AUTH_COOKIE_SECURE=true`.
 
 ## Flujo de login (registro -> verificacion -> acceso)
 1) Registrar usuario (crea token de verificacion).

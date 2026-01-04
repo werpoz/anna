@@ -70,4 +70,48 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
   async deleteBySession(sessionId: string): Promise<void> {
     await this.pool.query('DELETE FROM session_messages WHERE session_id = $1', [sessionId]);
   }
+
+  async searchByChat(params: {
+    sessionId: string;
+    chatJid: string;
+    limit: number;
+    cursor?: { timestamp: Date; messageId: string };
+  }): Promise<SessionMessageRecord[]> {
+    const { sessionId, chatJid, limit, cursor } = params;
+    const values: Array<unknown> = [sessionId, chatJid, limit];
+    let cursorClause = '';
+
+    if (cursor?.timestamp && cursor.messageId) {
+      values.push(cursor.timestamp, cursor.messageId);
+      cursorClause = `AND (timestamp < $4 OR (timestamp = $4 AND message_id < $5))`;
+    }
+
+    const result = await this.pool.query(
+      `SELECT id, tenant_id, session_id, chat_jid, message_id, from_me, sender_jid, timestamp,
+              type, text, raw, created_at, updated_at
+         FROM session_messages
+        WHERE session_id = $1
+          AND chat_jid = $2
+          ${cursorClause}
+        ORDER BY timestamp DESC NULLS LAST, message_id DESC
+        LIMIT $3`,
+      values
+    );
+
+    return result.rows.map((row) => ({
+      id: row.id,
+      tenantId: row.tenant_id,
+      sessionId: row.session_id,
+      chatJid: row.chat_jid,
+      messageId: row.message_id,
+      fromMe: row.from_me,
+      senderJid: row.sender_jid,
+      timestamp: row.timestamp,
+      type: row.type,
+      text: row.text,
+      raw: row.raw,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+  }
 }

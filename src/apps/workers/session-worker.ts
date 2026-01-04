@@ -23,6 +23,7 @@ import { PostgresSessionAuthRepository } from '@/contexts/Core/Session/infrastru
 import { PublishSessionHistorySync } from '@/contexts/Core/Session/application/use-cases/PublishSessionHistorySync';
 import { PublishSessionMessagesUpsert } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesUpsert';
 import { PostgresSessionMessageRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageRepository';
+import { PostgresSessionChatRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatRepository';
 
 initTelemetry(`${env.otelServiceName}-sessions`);
 
@@ -65,10 +66,12 @@ const stopSession = new StopSession(sessionRepository, eventBus, sessionProvider
 const sendSessionMessage = new SendSessionMessage(sessionRepository, sessionProvider);
 const sessionAuthRepository = new PostgresSessionAuthRepository(pool);
 const sessionMessageRepository = new PostgresSessionMessageRepository(pool);
+const sessionChatRepository = new PostgresSessionChatRepository(pool);
 const deleteSession = new DeleteSession(
   sessionRepository,
   sessionAuthRepository,
   sessionMessageRepository,
+  sessionChatRepository,
   sessionProvider
 );
 const sessionService = new SessionService(startSession, stopSession, sendSessionMessage, deleteSession);

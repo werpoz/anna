@@ -5,7 +5,7 @@ import { env } from '@/contexts/Shared/infrastructure/config/env';
 const cookieOptions = {
   httpOnly: true,
   path: '/',
-  sameSite: 'Strict' as const,
+  sameSite: env.authCookieSameSite,
   secure: env.authCookieSecure,
 };
 

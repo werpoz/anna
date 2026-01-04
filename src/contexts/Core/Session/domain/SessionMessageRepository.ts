@@ -17,4 +17,10 @@ export type SessionMessageRecord = {
 export interface SessionMessageRepository {
   upsertMany(records: SessionMessageRecord[]): Promise<void>;
   deleteBySession(sessionId: string): Promise<void>;
+  searchByChat(params: {
+    sessionId: string;
+    chatJid: string;
+    limit: number;
+    cursor?: { timestamp: Date; messageId: string };
+  }): Promise<SessionMessageRecord[]>;
 }

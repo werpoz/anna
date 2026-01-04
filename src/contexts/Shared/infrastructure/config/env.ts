@@ -21,12 +21,42 @@ const booleanOrDefault = (value: string | undefined, fallback: boolean): boolean
   return value.toLowerCase() === 'true';
 };
 
+const sameSiteOrDefault = (
+  value: string | undefined,
+  fallback: 'Strict' | 'Lax' | 'None'
+): 'Strict' | 'Lax' | 'None' => {
+  if (!value) {
+    return fallback;
+  }
+
+  const normalized = value.toLowerCase();
+  if (normalized === 'none') {
+    return 'None';
+  }
+  if (normalized === 'lax') {
+    return 'Lax';
+  }
+  return 'Strict';
+};
+
+const listOrDefault = (value: string | undefined, fallback: string[]): string[] => {
+  if (!value) {
+    return fallback;
+  }
+
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
 export const env = {
   databaseUrl: process.env.DATABASE_URL ?? 'postgres://anna:anna@localhost:5432/anna',
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
   logLevel: process.env.LOG_LEVEL ?? 'info',
   otelServiceName: process.env.OTEL_SERVICE_NAME ?? 'anna',
   appBaseUrl: process.env.APP_BASE_URL ?? 'http://localhost:3000',
+  corsOrigins: listOrDefault(process.env.CORS_ORIGINS, ['http://localhost:5173']),
   resendApiKey: process.env.RESEND_API_KEY ?? '',
   resendFrom: process.env.RESEND_FROM ?? '',
   authJwtSecret: process.env.AUTH_JWT_SECRET ?? 'dev-secret-change-me',
@@ -34,6 +64,7 @@ export const env = {
   authRefreshTokenTtlMs: numberOrDefault(process.env.AUTH_REFRESH_TOKEN_TTL_MS, 30 * 24 * 60 * 60 * 1000),
   authRefreshCookieName: process.env.AUTH_REFRESH_COOKIE_NAME ?? 'refresh_token',
   authCookieSecure: booleanOrDefault(process.env.AUTH_COOKIE_SECURE, false),
+  authCookieSameSite: sameSiteOrDefault(process.env.AUTH_COOKIE_SAMESITE, 'Strict'),
   authPasswordResetTtlMs: numberOrDefault(process.env.AUTH_PASSWORD_RESET_TTL_MS, 60 * 60 * 1000),
   eventsStream: process.env.EVENTS_STREAM ?? 'domain-events',
   eventsGroup: process.env.EVENTS_GROUP ?? 'domain-events-group',
@@ -65,4 +96,6 @@ export const envHelpers = {
   numberOrDefault,
   numberOrUndefined,
   booleanOrDefault,
+  sameSiteOrDefault,
+  listOrDefault,
 };

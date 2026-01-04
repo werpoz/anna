@@ -33,6 +33,9 @@ import { JwtAccessTokenSigner } from '@/contexts/Core/Auth/infrastructure/JwtAcc
 import { CryptoRefreshTokenHasher } from '@/contexts/Core/Auth/infrastructure/CryptoRefreshTokenHasher';
 import { CryptoRefreshTokenGenerator } from '@/contexts/Core/Auth/infrastructure/CryptoRefreshTokenGenerator';
 import { RedisSessionCommandPublisher } from '@/contexts/Core/Session/infrastructure/RedisSessionCommandPublisher';
+import { PostgresSessionRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionRepository';
+import { PostgresSessionMessageRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageRepository';
+import { PostgresSessionChatRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatRepository';
 import type { UserRepository } from '@/contexts/Core/User/domain/UserRepository';
 import type { RefreshTokenRepository } from '@/contexts/Core/Auth/domain/RefreshTokenRepository';
 import type { EventBus } from '@/contexts/Shared/domain/EventBus';
@@ -43,6 +46,9 @@ export type AppContext = {
   queryBus: InMemoryQueryBus;
   authService: AuthService;
   sessionCommandPublisher: SessionCommandPublisher;
+  sessionRepository: PostgresSessionRepository;
+  sessionMessageRepository: PostgresSessionMessageRepository;
+  sessionChatRepository: PostgresSessionChatRepository;
 };
 
 export const buildAppContext = (): AppContext => {
@@ -119,5 +125,17 @@ export const buildAppContext = (): AppContext => {
     env.sessionsCommandStream
   );
 
-  return { commandBus, queryBus, authService, sessionCommandPublisher };
+  const sessionRepository = new PostgresSessionRepository(getPool());
+  const sessionMessageRepository = new PostgresSessionMessageRepository(getPool());
+  const sessionChatRepository = new PostgresSessionChatRepository(getPool());
+
+  return {
+    commandBus,
+    queryBus,
+    authService,
+    sessionCommandPublisher,
+    sessionRepository,
+    sessionMessageRepository,
+    sessionChatRepository,
+  };
 };

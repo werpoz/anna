@@ -6,6 +6,7 @@
     "app:hono": "bun run src/apps/api/hono.ts",
     "db:migrate": "bun run scripts/migrate.ts",
     "db:outbox": "bun run scripts/migrate-outbox.ts",
+    "db:purge-session": "bun run scripts/purge-session.ts",
     "worker:outbox": "bun run src/apps/workers/outbox-dispatcher.ts",
     "worker:events": "bun run src/apps/workers/event-consumer.ts",
     "worker:sessions": "bun run src/apps/workers/session-worker.ts"

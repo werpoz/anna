@@ -4,11 +4,9 @@ import type { SessionControllerDeps } from '@/apps/api/controllers/sessions/type
 import { registerStartSessionRoute } from '@/apps/api/controllers/sessions/startSession.controller';
 import { registerStopSessionRoute } from '@/apps/api/controllers/sessions/stopSession.controller';
 import { registerSendSessionMessageRoute } from '@/apps/api/controllers/sessions/sendMessage.controller';
-import { registerSessionDemoRoute } from '@/apps/api/controllers/sessions/sessionDemo.controller';
 import { registerDeleteSessionRoute } from '@/apps/api/controllers/sessions/deleteSession.controller';
 
 export const registerSessionRoutes = (app: Hono<AppEnv>, deps: SessionControllerDeps): void => {
-  registerSessionDemoRoute(app);
   registerStartSessionRoute(app, deps);
   registerStopSessionRoute(app, deps);
   registerDeleteSessionRoute(app, deps);

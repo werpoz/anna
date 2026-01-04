@@ -34,6 +34,7 @@ Bounded contexts sugeridos:
 Entidades clave (MVP):
 - `Session`: estado (`pending_qr`, `connected`, `disconnected`), `phone`, `tenantId`.
 - `Message`: `messageId`, `direction` (in/out), `status`, `content`.
+- `Chat`: `chatJid`, `lastMessageId`, `lastMessageTs`, `unreadCount`.
 
 Eventos clave (MVP):
 - `session.created`, `session.qr.updated`, `session.status.connected`, `session.status.disconnected`
@@ -69,7 +70,11 @@ Notas MVP:
    - El worker de sesiones tambien emite `session.history.sync` y `session.messages.upsert` a partir de eventos de Baileys.
    - Se guardan en outbox y se publican a `domain-events`.
 
-5) **Realtime WebSocket**:
+5) **Persistencia de chats/mensajes (event-consumer)**:
+   - `session.history.sync` y `session.messages.upsert` se persisten en Postgres.
+   - Tablas: `session_messages` (historial) y `session_chats` (resumen por chat).
+
+6) **Realtime WebSocket**:
    - La API consume `domain-events` y emite a `ws://.../ws/sessions`.
    - Filtra por `tenantId` y solo envía eventos del usuario autenticado.
 
@@ -84,9 +89,11 @@ Notas MVP:
 
 Endpoints esperados para el MVP (propuestos):
 - `POST /sessions` crea sesión y devuelve `sessionId`.
-- `GET /sessions/:id/qr` devuelve QR actual.
 - `POST /sessions/:id/messages` envía mensaje.
 - `POST /webhooks/messages` recepción de mensajes entrantes.
+- `GET /chats` lista chats persistidos por tenant/sesión.
+- `GET /chats/:jid/messages` historial paginado por chat.
+- `POST /chats/:jid/messages` envía mensaje por chat.
 
 ## DI / Bootstrap
 - `buildAppContext` arma repos, buses, servicios y casos de uso.
