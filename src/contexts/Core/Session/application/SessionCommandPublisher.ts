@@ -18,6 +18,15 @@ export type SendSessionMessageCommand = {
   sessionId: string;
   to: string;
   content?: string;
+  media?: {
+    kind: 'image' | 'video' | 'audio' | 'document';
+    url: string;
+    mime?: string | null;
+    fileName?: string | null;
+    size?: number | null;
+  } | null;
+  caption?: string | null;
+  ptt?: boolean;
   messageId?: string;
   replyToMessageId?: string;
   forwardMessageId?: string;

@@ -321,6 +321,21 @@ curl -X POST http://localhost:3000/sessions/<sessionId>/messages \
   -d '{"to":"<jid>","forwardMessageId":"<messageId>"}'
 ```
 
+Enviar media (2 pasos: upload + send):
+```bash
+# 1) subir archivo
+curl -X POST http://localhost:3000/media \
+  -H 'Authorization: Bearer <accessToken>' \
+  -F "file=@./photo.jpg" \
+  -F "kind=image"
+
+# 2) enviar con media.url
+curl -X POST http://localhost:3000/sessions/<sessionId>/messages \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"to":"<jid>","media":{"kind":"image","url":"https://.../photo.jpg","mime":"image/jpeg","fileName":"photo.jpg"},"caption":"hola"}'
+```
+
 ## Chats (backend)
 Listar chats (usa la sesion mas reciente del tenant):
 ```bash
@@ -357,6 +372,21 @@ curl -X POST http://localhost:3000/chats/<jid>/messages \
   -H 'Authorization: Bearer <accessToken>' \
   -H 'Content-Type: application/json' \
   -d '{"forwardMessageId":"<messageId>"}'
+```
+
+Enviar media por chat (2 pasos: upload + send):
+```bash
+# 1) subir archivo
+curl -X POST http://localhost:3000/media \
+  -H 'Authorization: Bearer <accessToken>' \
+  -F "file=@./audio.ogg" \
+  -F "kind=audio"
+
+# 2) enviar con media.url
+curl -X POST http://localhost:3000/chats/<jid>/messages \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"media":{"kind":"audio","url":"https://.../audio.ogg","mime":"audio/ogg"},"ptt":true}'
 ```
 
 Marcar mensajes como leidos:

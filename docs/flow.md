@@ -329,6 +329,9 @@ Chats:
 - `GET /chats`
 - `GET /chats/:jid/messages`
 - `POST /chats/:jid/messages`
+
+Media:
+- `POST /media` (multipart: file + kind + sessionId opcional)
 - `POST /chats/:jid/read`
 - `PATCH /chats/:jid/messages/:messageId`
 - `DELETE /chats/:jid/messages/:messageId`

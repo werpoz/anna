@@ -399,6 +399,17 @@ export class BaileysSessionProvider implements SessionProvider {
       return;
     }
 
+    if (request.media) {
+      const message = buildMediaMessage({
+        media: request.media,
+        caption: request.caption ?? undefined,
+        ptt: request.ptt ?? false,
+      });
+      const options = request.quotedMessage ? { quoted: request.quotedMessage as any } : undefined;
+      await active.socket.sendMessage(request.to, message as any, options);
+      return;
+    }
+
     if (!request.content) {
       throw new Error('content is required for non-forward messages');
     }
@@ -1095,6 +1106,51 @@ const resolveDisconnectReason = (error: unknown): string => {
   }
 
   return 'unknown';
+};
+
+const buildMediaMessage = (params: {
+  media: {
+    kind: 'image' | 'video' | 'audio' | 'document';
+    url: string;
+    mime?: string | null;
+    fileName?: string | null;
+  };
+  caption?: string;
+  ptt: boolean;
+}): Record<string, unknown> => {
+  const { media, caption, ptt } = params;
+  const mime = media.mime ?? undefined;
+
+  if (media.kind === 'image') {
+    return {
+      image: { url: media.url },
+      caption,
+      mimetype: mime,
+    };
+  }
+
+  if (media.kind === 'video') {
+    return {
+      video: { url: media.url },
+      caption,
+      mimetype: mime,
+    };
+  }
+
+  if (media.kind === 'audio') {
+    return {
+      audio: { url: media.url },
+      mimetype: mime,
+      ptt,
+    };
+  }
+
+  return {
+    document: { url: media.url },
+    fileName: media.fileName ?? undefined,
+    caption,
+    mimetype: mime,
+  };
 };
 
 const shouldReconnect = (error: unknown): boolean => {

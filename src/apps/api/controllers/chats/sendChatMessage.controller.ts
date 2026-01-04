@@ -7,10 +7,40 @@ import { resolveSessionIdForTenant } from '@/apps/api/controllers/chats/helpers'
 
 type SendChatMessagePayload = {
   content?: string;
+  caption?: string;
+  ptt?: boolean;
+  media?: {
+    kind?: string;
+    url?: string;
+    mime?: string | null;
+    fileName?: string | null;
+    size?: number | null;
+  } | null;
   messageId?: string;
   sessionId?: string;
   replyToMessageId?: string;
   forwardMessageId?: string;
+};
+
+const normalizeMedia = (payload: SendChatMessagePayload) => {
+  const media = payload.media ?? null;
+  if (!media) {
+    return null;
+  }
+  const kind = media.kind?.toLowerCase();
+  if (kind !== 'image' && kind !== 'video' && kind !== 'audio' && kind !== 'document') {
+    return null;
+  }
+  if (!media.url) {
+    return null;
+  }
+  return {
+    kind,
+    url: media.url,
+    mime: media.mime ?? null,
+    fileName: media.fileName ?? null,
+    size: typeof media.size === 'number' ? media.size : null,
+  };
 };
 
 export const registerSendChatMessageRoute = (app: Hono<AppEnv>, deps: ChatControllerDeps): void => {
@@ -21,12 +51,20 @@ export const registerSendChatMessageRoute = (app: Hono<AppEnv>, deps: ChatContro
     }
 
     const payload = await parseRequestBody<SendChatMessagePayload>(c);
+    const media = normalizeMedia(payload ?? {});
     if (payload?.replyToMessageId && payload?.forwardMessageId) {
       return c.json({ message: 'replyToMessageId and forwardMessageId cannot be combined' }, 400);
     }
+    if (media && payload?.forwardMessageId) {
+      return c.json({ message: 'media and forwardMessageId cannot be combined' }, 400);
+    }
 
-    if (!payload?.content && !payload?.forwardMessageId) {
-      return c.json({ message: 'content is required unless forwarding' }, 400);
+    if (!payload?.content && !payload?.forwardMessageId && !media) {
+      return c.json({ message: 'content or media is required unless forwarding' }, 400);
+    }
+
+    if (payload?.media && !media) {
+      return c.json({ message: 'invalid media payload' }, 400);
     }
 
     const resolvedSessionId = await resolveSessionIdForTenant(
@@ -45,7 +83,10 @@ export const registerSendChatMessageRoute = (app: Hono<AppEnv>, deps: ChatContro
       commandId,
       sessionId: resolvedSessionId,
       to: c.req.param('jid'),
-      content: payload.content,
+      content: media ? undefined : payload.content,
+      caption: media ? payload.caption ?? payload.content ?? null : null,
+      ptt: payload.ptt ?? false,
+      media,
       messageId: payload.messageId,
       replyToMessageId: payload.replyToMessageId,
       forwardMessageId: payload.forwardMessageId,

@@ -7,6 +7,7 @@ import { registerAuthRoutes } from '@/apps/api/controllers/auth';
 import { registerSessionRoutes } from '@/apps/api/controllers/sessions';
 import { registerChatRoutes } from '@/apps/api/controllers/chats';
 import { registerContactRoutes } from '@/apps/api/controllers/contacts';
+import { registerMediaRoutes } from '@/apps/api/controllers/media';
 import { initTelemetry } from '@/contexts/Shared/infrastructure/observability/telemetry';
 import { env } from '@/contexts/Shared/infrastructure/config/env';
 import type { AppEnv } from '@/apps/api/types';
@@ -63,6 +64,9 @@ registerChatRoutes(app, {
 registerContactRoutes(app, {
   sessionRepository,
   contactRepository: sessionContactRepository,
+});
+registerMediaRoutes(app, {
+  sessionRepository,
 });
 registerMetricsRoutes(app);
 

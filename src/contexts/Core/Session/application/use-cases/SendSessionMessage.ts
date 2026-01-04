@@ -19,6 +19,12 @@ export class SendSessionMessage {
     if (request.replyToMessageId && request.forwardMessageId) {
       throw new Error('replyToMessageId and forwardMessageId are mutually exclusive');
     }
+    if (request.media && request.forwardMessageId) {
+      throw new Error('media and forwardMessageId are mutually exclusive');
+    }
+    if (!request.content && !request.forwardMessageId && !request.media) {
+      throw new Error('content or media is required unless forwarding');
+    }
 
     const id = new SessionId(request.sessionId);
     const session = await this.repository.search(id);

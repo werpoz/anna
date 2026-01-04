@@ -33,6 +33,14 @@ export type SessionMessageKey = {
   participant?: string;
 };
 
+export type SessionMessageMediaInput = {
+  kind: 'image' | 'video' | 'audio' | 'document';
+  url: string;
+  mime?: string | null;
+  fileName?: string | null;
+  size?: number | null;
+};
+
 export type SessionContactSummary = {
   id: string;
   lid?: string;
@@ -175,6 +183,9 @@ export type SendSessionMessageRequest = {
   messageId?: string;
   replyToMessageId?: string;
   forwardMessageId?: string;
+  media?: SessionMessageMediaInput | null;
+  caption?: string | null;
+  ptt?: boolean;
   quotedMessage?: Record<string, unknown> | null;
   forwardMessage?: Record<string, unknown> | null;
 };

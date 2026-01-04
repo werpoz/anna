@@ -30,6 +30,7 @@ Message:
 - `media`: `{ kind, url, mime, size, fileName, width, height, duration } | null`
 - `replyTo`: `{ messageId, participant, type, text } | null`
 - `forward`: `{ isForwarded, forwardingScore } | null`
+- `text` en media corresponde al caption (si existe).
 
 ## Estados y bootstrap de sesion
 - `session.snapshot` llega al abrir WS y define el estado inicial.
@@ -145,6 +146,10 @@ Media (imagen/video/audio/documento):
   - document: link con nombre y tamaño.
 - `media.url` es publica (R2 bucket publico o dominio custom).
 - Si `type` es media pero `media` es `null`, mostrar placeholder y actualizar cuando llegue `session.messages.media`.
+
+Enviar media (flujo recomendado):
+1) `POST /media` (multipart) con `file`, `kind` y `sessionId` opcional.
+2) `POST /chats/:jid/messages` con `{ media, caption }`.
 
 Ejemplo de merge en store:
 ```
@@ -327,6 +332,28 @@ const sendMessage = async (jid, content) =>
     body: JSON.stringify({ content }),
   })
 
+const uploadMedia = async (file, kind, sessionId) => {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('kind', kind)
+  if (sessionId) form.append('sessionId', sessionId)
+  const res = await fetch(`${apiBase}/media`, {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
+const sendMediaMessage = async (jid, file, kind, caption, sessionId) => {
+  const { media } = await uploadMedia(file, kind, sessionId)
+  return apiFetch(`/chats/${encodeURIComponent(jid)}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ media, caption }),
+  })
+}
+
 const sendReply = async (jid, content, replyToMessageId) =>
   apiFetch(`/chats/${encodeURIComponent(jid)}/messages`, {
     method: 'POST',
@@ -473,6 +500,7 @@ Modo offline:
 ## Endpoints necesarios
 - Auth: `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`
 - Sesiones: `POST /sessions` (iniciar QR), `POST /sessions/:id/stop`, `DELETE /sessions/:id`
+- Media: `POST /media` (multipart upload)
 - Chats: `GET /chats`, `GET /chats/:jid/messages`, `POST /chats/:jid/messages`
 - Chats (acciones): `POST /chats/:jid/read`, `PATCH /chats/:jid/messages/:messageId`, `DELETE /chats/:jid/messages/:messageId`
 - Reacciones: `POST /chats/:jid/messages/:messageId/reactions`

@@ -112,6 +112,29 @@ Content-Type: application/json
   "forwardMessageId": "<message_id>"
 }
 
+### Hono - upload media (multipart)
+# Nota: usar herramienta que soporte multipart (curl/postman).
+# curl -X POST http://localhost:3000/media \
+#   -H 'Authorization: Bearer <access_token>' \
+#   -F "file=@./photo.jpg" \
+#   -F "kind=image"
+
+### Hono - send session media message (async)
+POST http://localhost:3000/sessions/<session_id>/messages
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "to": "<jid>",
+  "media": {
+    "kind": "image",
+    "url": "https://.../photo.jpg",
+    "mime": "image/jpeg",
+    "fileName": "photo.jpg"
+  },
+  "caption": "hola"
+}
+
 ### Hono - logout all sessions
 POST http://localhost:3000/auth/logout-all
 Authorization: Bearer <access_token>
@@ -150,6 +173,20 @@ Content-Type: application/json
 
 {
   "forwardMessageId": "<message_id>"
+}
+
+### Hono - send chat media message
+POST http://localhost:3000/chats/<jid>/messages
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "media": {
+    "kind": "audio",
+    "url": "https://.../audio.ogg",
+    "mime": "audio/ogg"
+  },
+  "ptt": true
 }
 
 ### Hono - mark chat messages read
