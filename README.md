@@ -126,7 +126,8 @@ bun run app:hono
 ```bash
 cd src/apps/web
 bun install
-bun run dev
+cd ../../..
+bun run web:dev
 ```
 Opcional: define `VITE_API_BASE_URL` si la API no corre en `http://localhost:3000`.
 UI:
@@ -318,8 +319,11 @@ Nota CORS:
 - `bun run app:hono`
 - `bun run worker:outbox`
 - `bun run worker:events`
+- `bun run worker:sessions`
 - `bun run db:outbox`
 - `bun run db:migrate`
+- `bun run db:purge-session`
+- `bun run web:dev`
 - `bun test`
 - `bun test --coverage`
 - `bun x tsc --noEmit`

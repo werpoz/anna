@@ -5,6 +5,14 @@
 - Refresh token: cookie HttpOnly para rotacion.
 - Verificacion: acepta `code` corto o `token` (link).
 - Resets y reenvios via eventos.
+- `POST /auth/refresh` rota el refresh token si es valido.
+
+## Cookies y CORS
+- Si el frontend corre en otro dominio, usa:
+  - `CORS_ORIGINS=http://tu-frontend`
+  - `AUTH_COOKIE_SAMESITE=None`
+  - `AUTH_COOKIE_SECURE=true`
+- El refresh token es `HttpOnly`, no se lee desde JS.
 
 ## Variables de entorno
 - `AUTH_JWT_SECRET`
@@ -12,6 +20,7 @@
 - `AUTH_REFRESH_TOKEN_TTL_MS`
 - `AUTH_REFRESH_COOKIE_NAME`
 - `AUTH_COOKIE_SECURE`
+- `AUTH_COOKIE_SAMESITE`
 - `AUTH_PASSWORD_RESET_TTL_MS`
 - `APP_BASE_URL`
 - `RESEND_API_KEY`
@@ -42,15 +51,20 @@ Respuesta: `accessToken` + `accessTokenExpiresIn` y cookie refresh.
 ```json
 { "email": "...", "password": "..." }
 ```
-Respuesta: `accessToken` + cookie refresh.
+Respuesta: `accessToken`, `accessTokenExpiresIn` + cookie refresh.
 
 ### Refresh
 `POST /auth/refresh`
 Requiere cookie refresh.
+Respuesta: `accessToken`, `accessTokenExpiresIn` + cookie refresh nuevo.
 
 ### Logout
 `POST /auth/logout`
 Revoca refresh y limpia cookie.
+
+### Logout all
+`POST /auth/logout-all`
+Revoca todos los refresh tokens del usuario autenticado.
 
 ### Reenviar verificacion
 `POST /auth/resend-verification`

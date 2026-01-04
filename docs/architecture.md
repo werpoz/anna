@@ -12,11 +12,11 @@ La app sigue un enfoque DDD ligero con capas separadas y eventos de dominio. El 
 ## Contextos
 - **Core/User**: registro, verificación, reset de password, estados de usuario.
 - **Core/Auth**: login, refresh, logout, emisión de tokens y rotación.
-- **Core/Session**: sesiones de WhatsApp (Baileys), QR, estado y reconnect.
+- **Core/Session**: sesiones de WhatsApp (Baileys), QR, estado, persistencia de auth state, mensajes y chats.
 - **Shared**: buses, outbox, observabilidad, DI, utilidades comunes.
 
-## MVP de negocio (propuesta)
-Objetivo: habilitar sesiones de WhatsApp para enviar/recibir mensajes desde una API, con base segura de usuarios.
+## Estado actual (backend)
+Objetivo: habilitar sesiones de WhatsApp para enviar/recibir mensajes desde una API con persistencia en Postgres y streaming de eventos.
 
 Flujo mínimo:
 1) Usuario se registra y verifica su cuenta.
@@ -25,21 +25,14 @@ Flujo mínimo:
 4) Envía mensajes desde la API.
 5) Recibe eventos de mensajes entrantes.
 
-Bounded contexts sugeridos:
-- **Core/User**: identidad, estados, verificación, seguridad.
-- **Core/Auth**: autenticación, tokens, sesiones de acceso.
-- **Core/Session** (nuevo): sesiones de WhatsApp, QR, estado, reconexión.
-- **Core/Messaging** (nuevo): envío/recepción, idempotencia y tracking.
-
-Entidades clave (MVP):
+Entidades y persistencia clave:
 - `Session`: estado (`pending_qr`, `connected`, `disconnected`), `phone`, `tenantId`.
-- `Message`: `messageId`, `direction` (in/out), `status`, `content`.
-- `Chat`: `chatJid`, `lastMessageId`, `lastMessageTs`, `unreadCount`.
+- `session_messages`: historial por chat con `message_id`, `from_me`, `timestamp`, `raw`.
+- `session_chats`: resumen por chat (`lastMessageTs`, `lastMessageText`, `unreadCount`).
 
-Eventos clave (MVP):
+Eventos clave:
 - `session.created`, `session.qr.updated`, `session.status.connected`, `session.status.disconnected`
 - `session.history.sync`, `session.messages.upsert`
-- `message.sent`, `message.received`, `message.failed`
 
 ## Eventos y Outbox
 - Los agregados publican eventos de dominio.
@@ -87,13 +80,11 @@ Notas MVP:
 - Hono con controllers por endpoint.
 - Middleware de auth con `c.set('auth')` tipado via `AppEnv`.
 
-Endpoints esperados para el MVP (propuestos):
-- `POST /sessions` crea sesión y devuelve `sessionId`.
-- `POST /sessions/:id/messages` envía mensaje.
-- `POST /webhooks/messages` recepción de mensajes entrantes.
-- `GET /chats` lista chats persistidos por tenant/sesión.
-- `GET /chats/:jid/messages` historial paginado por chat.
-- `POST /chats/:jid/messages` envía mensaje por chat.
+Endpoints actuales relevantes:
+- `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`.
+- `POST /sessions`, `POST /sessions/:id/stop`, `DELETE /sessions/:id`, `POST /sessions/:id/messages`.
+- `GET /chats`, `GET /chats/:jid/messages`, `POST /chats/:jid/messages`.
+- WebSocket `ws://.../ws/sessions` con eventos del tenant autenticado.
 
 ## DI / Bootstrap
 - `buildAppContext` arma repos, buses, servicios y casos de uso.
