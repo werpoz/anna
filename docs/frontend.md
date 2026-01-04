@@ -70,6 +70,26 @@ Contactos:
 - `session.contacts.upsert` actualiza nombres, foto y status.
 - Usa `contactJid` como join con `chatJid` al renderizar.
 
+Resolver nombre por JID:
+- Construye un map con `GET /contacts`.
+- Al renderizar mensajes, prioriza:
+  1) `contact.name`
+  2) `contact.notify`
+  3) `contact.phoneNumber`
+  4) fallback al numero (sin `@s.whatsapp.net`)
+- En grupos usa `senderJid` para el autor, no `remoteJid`.
+
+Ejemplo logico:
+```
+const nameForJid = (jid) => {
+  const contact = contactMap[jid]
+  if (contact?.name) return contact.name
+  if (contact?.notify) return contact.notify
+  if (contact?.phoneNumber) return contact.phoneNumber
+  return jid?.replace('@s.whatsapp.net', '') || 'Desconocido'
+}
+```
+
 Modo offline:
 - `session.snapshot` + `session.status.disconnected` deben mostrar “offline”.
 - Mantener visible el historial de chats/mensajes desde DB.

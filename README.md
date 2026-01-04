@@ -246,6 +246,20 @@ curl -X POST http://localhost:3000/sessions/<sessionId>/messages \
   -H 'Content-Type: application/json' \
   -d '{"to":"<jid>","content":"Hola!"}'
 ```
+Opcional (reply/forward):
+```bash
+# reply
+curl -X POST http://localhost:3000/sessions/<sessionId>/messages \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"to":"<jid>","content":"Respuesta","replyToMessageId":"<messageId>"}'
+
+# forward
+curl -X POST http://localhost:3000/sessions/<sessionId>/messages \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"to":"<jid>","forwardMessageId":"<messageId>"}'
+```
 
 ## Chats (backend)
 Listar chats (usa la sesion mas reciente del tenant):
@@ -259,7 +273,7 @@ Paginado de mensajes por chat:
 curl "http://localhost:3000/chats/<jid>/messages?limit=50" \
   -H 'Authorization: Bearer <accessToken>'
 ```
-Respuesta incluye `status` y `statusAt` cuando hay updates de entrega/lectura.
+Respuesta incluye `status`, `statusAt`, `replyTo` y `forward` cuando aplica.
 
 Enviar mensaje por chat:
 ```bash
@@ -267,6 +281,20 @@ curl -X POST http://localhost:3000/chats/<jid>/messages \
   -H 'Authorization: Bearer <accessToken>' \
   -H 'Content-Type: application/json' \
   -d '{"content":"Hola!"}'
+```
+Opcional (reply/forward):
+```bash
+# reply
+curl -X POST http://localhost:3000/chats/<jid>/messages \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"content":"Respuesta","replyToMessageId":"<messageId>"}'
+
+# forward
+curl -X POST http://localhost:3000/chats/<jid>/messages \
+  -H 'Authorization: Bearer <accessToken>' \
+  -H 'Content-Type: application/json' \
+  -d '{"forwardMessageId":"<messageId>"}'
 ```
 
 ## Contactos (backend)

@@ -90,3 +90,68 @@ Content-Type: application/json
   "to": "<jid>",
   "content": "Hola!"
 }
+
+### Hono - send session message reply (async)
+POST http://localhost:3000/sessions/<session_id>/messages
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "to": "<jid>",
+  "content": "Respuesta",
+  "replyToMessageId": "<message_id>"
+}
+
+### Hono - send session message forward (async)
+POST http://localhost:3000/sessions/<session_id>/messages
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "to": "<jid>",
+  "forwardMessageId": "<message_id>"
+}
+
+### Hono - logout all sessions
+POST http://localhost:3000/auth/logout-all
+Authorization: Bearer <access_token>
+
+### Hono - list chats
+GET http://localhost:3000/chats
+Authorization: Bearer <access_token>
+
+### Hono - list chat messages
+GET http://localhost:3000/chats/<jid>/messages?limit=50
+Authorization: Bearer <access_token>
+
+### Hono - send chat message
+POST http://localhost:3000/chats/<jid>/messages
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "content": "Hola!"
+}
+
+### Hono - reply in chat
+POST http://localhost:3000/chats/<jid>/messages
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "content": "Respuesta",
+  "replyToMessageId": "<message_id>"
+}
+
+### Hono - forward in chat
+POST http://localhost:3000/chats/<jid>/messages
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "forwardMessageId": "<message_id>"
+}
+
+### Hono - list contacts
+GET http://localhost:3000/contacts
+Authorization: Bearer <access_token>
