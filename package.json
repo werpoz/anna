@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "app:hono": "bun run src/apps/api/hono.ts",
+    "app:web": "cd src/apps/web && bun run dev",
     "db:migrate": "bun run scripts/migrate.ts",
     "db:outbox": "bun run scripts/migrate-outbox.ts",
     "db:purge-session": "bun run scripts/purge-session.ts",
