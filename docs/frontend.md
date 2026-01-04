@@ -30,6 +30,7 @@ Message:
 - `session.messages.upsert` -> actualizar chat list y mensajes.
 - `session.messages.update` -> actualizar status (delivered/read/played).
 - `session.contacts.upsert` -> actualizar contactos.
+- `session.presence.update` -> estado de presencia/typing.
 
 ## Como aplicar features tipo WhatsApp Web (ideas practicas)
 
@@ -59,6 +60,28 @@ Lista de chats en tiempo real:
 Estados de mensaje:
 - `session.messages.update` trae `status` y `statusAt`.
 - Mapea a iconos: `delivered` (✓), `read` (✓✓ azul), `played` (✓✓ con icono audio).
+
+Presencia y typing:
+- `session.presence.update` trae `presence` por participante o chat.
+- Mapear `composing` -> "escribiendo...", `recording` -> "grabando audio...", `available` -> "en linea", `unavailable` -> "offline".
+- En grupos usar `jid` del update para mostrar quien esta escribiendo.
+- Mantener un TTL (10-15s) para limpiar estados y evitar "escribiendo" pegado.
+
+Ejemplo logico:
+```
+onWs('session.presence.update', (payload) => {
+  const { chatJid, updates } = payload
+  for (u of updates) {
+    presenceStore[chatJid] ??= {}
+    presenceStore[chatJid][u.jid] = {
+      presence: u.presence, lastSeen: u.lastSeen, ts: Date.now()
+    }
+  }
+})
+
+const typing = Object.values(presenceStore[chatJid] || {})
+  .filter(p => p.presence === 'composing' && Date.now() - p.ts < 12000)
+```
 
 Reply/Forward:
 - `replyTo` y `forward` llegan en la respuesta de `GET /chats/:jid/messages`.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { SessionContactsUpsertDomainEvent } from '@/contexts/Core/Session/domain/events/SessionContactsUpsertDomainEvent';
 import { SessionMessagesUpdateDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesUpdateDomainEvent';
+import { SessionPresenceUpdateDomainEvent } from '@/contexts/Core/Session/domain/events/SessionPresenceUpdateDomainEvent';
 
 describe('Session realtime domain events', () => {
   it('round-trips session contacts upsert', () => {
@@ -57,5 +58,27 @@ describe('Session realtime domain events', () => {
     expect(rebuilt.tenantId).toBe(event.tenantId);
     expect(rebuilt.payload.updates[0]?.status).toBe('read');
     expect(rebuilt.payload.updates[0]?.messageId).toBe('msg-1');
+  });
+
+  it('round-trips session presence update', () => {
+    const event = new SessionPresenceUpdateDomainEvent({
+      aggregateId: 'session-1',
+      tenantId: 'tenant-1',
+      payload: {
+        chatJid: '123@g.us',
+        updatesCount: 1,
+        updates: [{ jid: 'user-1@s.whatsapp.net', presence: 'composing', lastSeen: null }],
+      },
+    });
+
+    const rebuilt = SessionPresenceUpdateDomainEvent.fromPrimitives({
+      aggregateId: event.aggregateId,
+      eventId: event.eventId,
+      occurredOn: event.occurredOn,
+      attributes: event.toPrimitives(),
+    });
+
+    expect(rebuilt.payload.chatJid).toBe('123@g.us');
+    expect(rebuilt.payload.updates[0]?.presence).toBe('composing');
   });
 });

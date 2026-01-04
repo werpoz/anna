@@ -11,6 +11,7 @@ import { PublishSessionHistorySync } from '@/contexts/Core/Session/application/u
 import { PublishSessionMessagesUpsert } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesUpsert';
 import { PublishSessionContactsUpsert } from '@/contexts/Core/Session/application/use-cases/PublishSessionContactsUpsert';
 import { PublishSessionMessagesUpdate } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesUpdate';
+import { PublishSessionPresenceUpdate } from '@/contexts/Core/Session/application/use-cases/PublishSessionPresenceUpdate';
 
 export class StartSession {
   constructor(
@@ -23,7 +24,8 @@ export class StartSession {
     private readonly publishSessionHistorySync: PublishSessionHistorySync,
     private readonly publishSessionMessagesUpsert: PublishSessionMessagesUpsert,
     private readonly publishSessionContactsUpsert: PublishSessionContactsUpsert,
-    private readonly publishSessionMessagesUpdate: PublishSessionMessagesUpdate
+    private readonly publishSessionMessagesUpdate: PublishSessionMessagesUpdate,
+    private readonly publishSessionPresenceUpdate: PublishSessionPresenceUpdate
   ) {}
 
   async execute(sessionId: string, tenantId: string): Promise<void> {
@@ -62,6 +64,9 @@ export class StartSession {
         },
         onMessagesUpdate: async (payload) => {
           await this.publishSessionMessagesUpdate.execute(sessionId, resolvedTenantId, payload);
+        },
+        onPresenceUpdate: async (payload) => {
+          await this.publishSessionPresenceUpdate.execute(sessionId, resolvedTenantId, payload);
         },
       },
     });

@@ -323,6 +323,7 @@ Eventos esperados:
 - `session.messages.upsert`
 - `session.messages.update`
 - `session.contacts.upsert`
+- `session.presence.update`
 
 Notas de historial/mensajes:
 - `session.history.sync` incluye resumen de chats/contacts/mensajes (limitado en tamaño).

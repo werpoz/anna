@@ -18,6 +18,7 @@ Eventos emitidos por tenant:
 - `session.messages.upsert`
 - `session.messages.update`
 - `session.contacts.upsert`
+- `session.presence.update`
 
 Formato base:
 ```json
@@ -40,10 +41,12 @@ Resumen de payloads:
 - `session.messages.upsert`: `{ tenantId, upsertType, requestId, messagesCount, messages[] }`
 - `session.messages.update`: `{ tenantId, updatesCount, updates[] }`
 - `session.contacts.upsert`: `{ tenantId, contactsCount, contactsTruncated, contacts[] }`
+- `session.presence.update`: `{ tenantId, chatJid, updatesCount, updates[] }`
 
 Notas:
 - `messages[]` trae resumen y `raw` opcional si se persistio en DB.
 - `updates[]` suele incluir `messageId`, `status` y `statusAt` (delivered/read/played).
+- `presence.update` trae `presence` (composing/available/unavailable/paused) y `lastSeen` cuando aplica.
 
 ## Endpoints principales
 

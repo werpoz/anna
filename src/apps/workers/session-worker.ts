@@ -24,6 +24,7 @@ import { PublishSessionHistorySync } from '@/contexts/Core/Session/application/u
 import { PublishSessionMessagesUpsert } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesUpsert';
 import { PublishSessionContactsUpsert } from '@/contexts/Core/Session/application/use-cases/PublishSessionContactsUpsert';
 import { PublishSessionMessagesUpdate } from '@/contexts/Core/Session/application/use-cases/PublishSessionMessagesUpdate';
+import { PublishSessionPresenceUpdate } from '@/contexts/Core/Session/application/use-cases/PublishSessionPresenceUpdate';
 import { PostgresSessionMessageRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageRepository';
 import { PostgresSessionChatRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatRepository';
 import { PostgresSessionContactRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionContactRepository';
@@ -57,6 +58,7 @@ const publishSessionHistorySync = new PublishSessionHistorySync(eventBus);
 const publishSessionMessagesUpsert = new PublishSessionMessagesUpsert(eventBus);
 const publishSessionContactsUpsert = new PublishSessionContactsUpsert(eventBus);
 const publishSessionMessagesUpdate = new PublishSessionMessagesUpdate(eventBus);
+const publishSessionPresenceUpdate = new PublishSessionPresenceUpdate(eventBus);
 const sessionAuthRepository = new PostgresSessionAuthRepository(pool);
 const sessionMessageRepository = new PostgresSessionMessageRepository(pool);
 const startSession = new StartSession(
@@ -69,7 +71,8 @@ const startSession = new StartSession(
   publishSessionHistorySync,
   publishSessionMessagesUpsert,
   publishSessionContactsUpsert,
-  publishSessionMessagesUpdate
+  publishSessionMessagesUpdate,
+  publishSessionPresenceUpdate
 );
 const stopSession = new StopSession(sessionRepository, eventBus, sessionProvider);
 const sendSessionMessage = new SendSessionMessage(

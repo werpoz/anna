@@ -19,6 +19,8 @@ import type {
   SessionMessageStatusUpdate,
   SessionMessagesUpsertPayload,
   SessionMessagesUpdatePayload,
+  SessionPresenceUpdatePayload,
+  SessionPresenceUpdate,
   StartSessionRequest,
   SendSessionMessageRequest,
 } from '@/contexts/Core/Session/application/SessionProvider';
@@ -218,6 +220,25 @@ export class BaileysSessionProvider implements SessionProvider {
         source: 'receipt',
       };
       void request.handlers.onMessagesUpdate(payload);
+    });
+
+    socket.ev.on('presence.update', (update) => {
+      if (!request.handlers.onPresenceUpdate) {
+        return;
+      }
+
+      const updates = buildPresenceUpdates(update.presences);
+      if (!updates.length) {
+        return;
+      }
+
+      const payload: SessionPresenceUpdatePayload = {
+        chatJid: update.id,
+        updatesCount: updates.length,
+        updates,
+      };
+
+      void request.handlers.onPresenceUpdate(payload);
     });
 
     this.sessions.set(request.sessionId, { socket, handlers: request.handlers });
@@ -432,6 +453,22 @@ const isContactSummary = (value: SessionContactSummary | null): value is Session
 const isStatusUpdate = (
   value: SessionMessageStatusUpdate | null
 ): value is SessionMessageStatusUpdate => Boolean(value);
+
+const buildPresenceUpdates = (
+  presences: Record<string, { lastKnownPresence?: string; lastSeen?: number }> | undefined
+): SessionPresenceUpdate[] => {
+  if (!presences) {
+    return [];
+  }
+
+  return Object.entries(presences)
+    .map(([jid, data]) => ({
+      jid,
+      presence: data.lastKnownPresence ?? 'unavailable',
+      lastSeen: data.lastSeen ?? null,
+    }))
+    .filter((item) => Boolean(item.jid));
+};
 
 const resolveDisconnectReason = (error: unknown): string => {
   const statusCode = (error as { output?: { statusCode?: number } })?.output?.statusCode;

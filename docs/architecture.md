@@ -36,6 +36,7 @@ Eventos clave:
 - `session.history.sync`, `session.messages.upsert`
 - `session.contacts.upsert`
 - `session.messages.update`
+- `session.presence.update`
 
 ## Eventos y Outbox
 - Los agregados publican eventos de dominio.

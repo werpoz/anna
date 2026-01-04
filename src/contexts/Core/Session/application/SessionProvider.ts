@@ -6,6 +6,7 @@ export type SessionProviderHandlers = {
   onMessagesUpsert?: (payload: SessionMessagesUpsertPayload) => Promise<void> | void;
   onContactsUpsert?: (payload: SessionContactsUpsertPayload) => Promise<void> | void;
   onMessagesUpdate?: (payload: SessionMessagesUpdatePayload) => Promise<void> | void;
+  onPresenceUpdate?: (payload: SessionPresenceUpdatePayload) => Promise<void> | void;
 };
 
 export type SessionMessageSummary = {
@@ -70,6 +71,18 @@ export type SessionMessagesUpdatePayload = {
   updatesCount: number;
   updates: SessionMessageStatusUpdate[];
   source?: 'update' | 'receipt';
+};
+
+export type SessionPresenceUpdate = {
+  jid: string;
+  presence: string;
+  lastSeen?: number | null;
+};
+
+export type SessionPresenceUpdatePayload = {
+  chatJid: string;
+  updatesCount: number;
+  updates: SessionPresenceUpdate[];
 };
 
 export type StartSessionRequest = {
