@@ -17,8 +17,10 @@ export type SendSessionMessageCommand = {
   commandId: string;
   sessionId: string;
   to: string;
-  content: string;
+  content?: string;
   messageId?: string;
+  replyToMessageId?: string;
+  forwardMessageId?: string;
 };
 
 export type DeleteSessionCommand = {

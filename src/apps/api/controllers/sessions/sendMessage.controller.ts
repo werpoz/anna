@@ -8,6 +8,8 @@ type SendMessagePayload = {
   to?: string;
   content?: string;
   messageId?: string;
+  replyToMessageId?: string;
+  forwardMessageId?: string;
 };
 
 export const registerSendSessionMessageRoute = (
@@ -21,8 +23,12 @@ export const registerSendSessionMessageRoute = (
     }
 
     const payload = await parseRequestBody<SendMessagePayload>(c);
-    if (!payload?.to || !payload?.content) {
-      return c.json({ message: 'to and content are required' }, 400);
+    if (payload?.replyToMessageId && payload?.forwardMessageId) {
+      return c.json({ message: 'replyToMessageId and forwardMessageId cannot be combined' }, 400);
+    }
+
+    if (!payload?.to || (!payload?.content && !payload?.forwardMessageId)) {
+      return c.json({ message: 'to and content are required unless forwarding' }, 400);
     }
 
     const commandId = crypto.randomUUID();
@@ -34,6 +40,8 @@ export const registerSendSessionMessageRoute = (
       to: payload.to,
       content: payload.content,
       messageId: payload.messageId,
+      replyToMessageId: payload.replyToMessageId,
+      forwardMessageId: payload.forwardMessageId,
     });
 
     return c.json({ commandId }, 202);

@@ -6,14 +6,20 @@ import type {
   SessionProvider,
   SendSessionMessageRequest,
 } from '@/contexts/Core/Session/application/SessionProvider';
+import type { SessionMessageRepository } from '@/contexts/Core/Session/domain/SessionMessageRepository';
 
 export class SendSessionMessage {
   constructor(
     private readonly repository: SessionRepository,
+    private readonly messageRepository: SessionMessageRepository,
     private readonly provider: SessionProvider
   ) {}
 
   async execute(request: SendSessionMessageRequest): Promise<void> {
+    if (request.replyToMessageId && request.forwardMessageId) {
+      throw new Error('replyToMessageId and forwardMessageId are mutually exclusive');
+    }
+
     const id = new SessionId(request.sessionId);
     const session = await this.repository.search(id);
 
@@ -25,6 +31,33 @@ export class SendSessionMessage {
       throw new SessionNotConnectedError(id, session.status.value);
     }
 
-    await this.provider.sendMessage(request);
+    let quotedMessage: Record<string, unknown> | null = null;
+    let forwardMessage: Record<string, unknown> | null = null;
+
+    if (request.replyToMessageId) {
+      quotedMessage = await this.messageRepository.findRawByMessageId({
+        sessionId: request.sessionId,
+        messageId: request.replyToMessageId,
+      });
+      if (!quotedMessage) {
+        throw new Error(`reply message not found: ${request.replyToMessageId}`);
+      }
+    }
+
+    if (request.forwardMessageId) {
+      forwardMessage = await this.messageRepository.findRawByMessageId({
+        sessionId: request.sessionId,
+        messageId: request.forwardMessageId,
+      });
+      if (!forwardMessage) {
+        throw new Error(`forward message not found: ${request.forwardMessageId}`);
+      }
+    }
+
+    await this.provider.sendMessage({
+      ...request,
+      quotedMessage,
+      forwardMessage,
+    });
   }
 }

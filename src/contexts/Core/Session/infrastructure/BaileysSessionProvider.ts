@@ -243,7 +243,17 @@ export class BaileysSessionProvider implements SessionProvider {
       throw new Error(`Session <${request.sessionId}> is not active`);
     }
 
-    await active.socket.sendMessage(request.to, { text: request.content });
+    if (request.forwardMessage) {
+      await active.socket.sendMessage(request.to, { forward: request.forwardMessage as any });
+      return;
+    }
+
+    if (!request.content) {
+      throw new Error('content is required for non-forward messages');
+    }
+
+    const options = request.quotedMessage ? { quoted: request.quotedMessage as any } : undefined;
+    await active.socket.sendMessage(request.to, { text: request.content }, options);
   }
 
   private clearReconnectState(sessionId: string): void {

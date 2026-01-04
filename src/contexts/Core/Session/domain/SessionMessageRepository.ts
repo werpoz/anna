@@ -27,6 +27,7 @@ export type SessionMessageStatusRecord = {
 export interface SessionMessageRepository {
   upsertMany(records: SessionMessageRecord[]): Promise<void>;
   updateStatuses(records: SessionMessageStatusRecord[]): Promise<void>;
+  findRawByMessageId(params: { sessionId: string; messageId: string }): Promise<Record<string, unknown> | null>;
   deleteBySession(sessionId: string): Promise<void>;
   searchByChat(params: {
     sessionId: string;

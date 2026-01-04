@@ -119,6 +119,8 @@ export class RedisSessionCommandConsumer {
           to: command.to,
           content: command.content,
           messageId: command.messageId,
+          replyToMessageId: command.replyToMessageId,
+          forwardMessageId: command.forwardMessageId,
         });
         return;
       case 'session.delete':

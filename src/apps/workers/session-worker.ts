@@ -57,6 +57,8 @@ const publishSessionHistorySync = new PublishSessionHistorySync(eventBus);
 const publishSessionMessagesUpsert = new PublishSessionMessagesUpsert(eventBus);
 const publishSessionContactsUpsert = new PublishSessionContactsUpsert(eventBus);
 const publishSessionMessagesUpdate = new PublishSessionMessagesUpdate(eventBus);
+const sessionAuthRepository = new PostgresSessionAuthRepository(pool);
+const sessionMessageRepository = new PostgresSessionMessageRepository(pool);
 const startSession = new StartSession(
   sessionRepository,
   eventBus,
@@ -70,9 +72,11 @@ const startSession = new StartSession(
   publishSessionMessagesUpdate
 );
 const stopSession = new StopSession(sessionRepository, eventBus, sessionProvider);
-const sendSessionMessage = new SendSessionMessage(sessionRepository, sessionProvider);
-const sessionAuthRepository = new PostgresSessionAuthRepository(pool);
-const sessionMessageRepository = new PostgresSessionMessageRepository(pool);
+const sendSessionMessage = new SendSessionMessage(
+  sessionRepository,
+  sessionMessageRepository,
+  sessionProvider
+);
 const sessionChatRepository = new PostgresSessionChatRepository(pool);
 const sessionContactRepository = new PostgresSessionContactRepository(pool);
 const deleteSession = new DeleteSession(

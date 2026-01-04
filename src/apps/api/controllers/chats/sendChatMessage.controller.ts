@@ -9,6 +9,8 @@ type SendChatMessagePayload = {
   content?: string;
   messageId?: string;
   sessionId?: string;
+  replyToMessageId?: string;
+  forwardMessageId?: string;
 };
 
 export const registerSendChatMessageRoute = (app: Hono<AppEnv>, deps: ChatControllerDeps): void => {
@@ -19,8 +21,12 @@ export const registerSendChatMessageRoute = (app: Hono<AppEnv>, deps: ChatContro
     }
 
     const payload = await parseRequestBody<SendChatMessagePayload>(c);
-    if (!payload?.content) {
-      return c.json({ message: 'content is required' }, 400);
+    if (payload?.replyToMessageId && payload?.forwardMessageId) {
+      return c.json({ message: 'replyToMessageId and forwardMessageId cannot be combined' }, 400);
+    }
+
+    if (!payload?.content && !payload?.forwardMessageId) {
+      return c.json({ message: 'content is required unless forwarding' }, 400);
     }
 
     const resolvedSessionId = await resolveSessionIdForTenant(
@@ -41,6 +47,8 @@ export const registerSendChatMessageRoute = (app: Hono<AppEnv>, deps: ChatContro
       to: c.req.param('jid'),
       content: payload.content,
       messageId: payload.messageId,
+      replyToMessageId: payload.replyToMessageId,
+      forwardMessageId: payload.forwardMessageId,
     });
 
     return c.json({ commandId, sessionId: resolvedSessionId }, 202);

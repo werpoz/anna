@@ -81,8 +81,12 @@ export type StartSessionRequest = {
 export type SendSessionMessageRequest = {
   sessionId: string;
   to: string;
-  content: string;
+  content?: string;
   messageId?: string;
+  replyToMessageId?: string;
+  forwardMessageId?: string;
+  quotedMessage?: Record<string, unknown> | null;
+  forwardMessage?: Record<string, unknown> | null;
 };
 
 export interface SessionProvider {

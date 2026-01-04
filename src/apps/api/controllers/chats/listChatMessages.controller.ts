@@ -1,4 +1,5 @@
 import type { Hono } from 'hono';
+import { extractMessageContent, getContentType, proto } from 'baileys';
 import type { AppEnv } from '@/apps/api/types';
 import type { ChatControllerDeps } from '@/apps/api/controllers/chats/types';
 import { requireAuth } from '@/apps/api/middleware/requireAuth';
@@ -43,6 +44,65 @@ const encodeCursor = (timestamp: Date, messageId: string): string => {
   return Buffer.from(payload).toString('base64');
 };
 
+const extractContextInfo = (raw: Record<string, unknown> | null): proto.IContextInfo | null => {
+  const message = (raw as { message?: proto.IMessage } | null)?.message;
+  if (!message) {
+    return null;
+  }
+
+  const content = extractMessageContent(message);
+  return (content as { contextInfo?: proto.IContextInfo } | null)?.contextInfo ?? null;
+};
+
+const extractReplyInfo = (raw: Record<string, unknown> | null) => {
+  const contextInfo = extractContextInfo(raw);
+  const stanzaId = contextInfo?.stanzaId ?? null;
+  if (!stanzaId) {
+    return null;
+  }
+
+  const quotedMessage = contextInfo?.quotedMessage ?? null;
+  if (!quotedMessage) {
+    return {
+      messageId: stanzaId,
+      participant: contextInfo?.participant ?? null,
+      type: null,
+      text: null,
+    };
+  }
+
+  const quotedContent = extractMessageContent(quotedMessage);
+  const quotedType = quotedContent ? getContentType(quotedContent) : null;
+  const quotedText =
+    quotedContent?.conversation ??
+    quotedContent?.extendedTextMessage?.text ??
+    quotedContent?.imageMessage?.caption ??
+    quotedContent?.videoMessage?.caption ??
+    quotedContent?.documentMessage?.caption ??
+    undefined;
+
+  return {
+    messageId: stanzaId,
+    participant: contextInfo?.participant ?? null,
+    type: quotedType ?? null,
+    text: quotedText ?? null,
+  };
+};
+
+const extractForwardInfo = (raw: Record<string, unknown> | null) => {
+  const contextInfo = extractContextInfo(raw);
+  const score = contextInfo?.forwardingScore;
+  const isForwarded = Boolean(contextInfo?.isForwarded) || typeof score === 'number';
+  if (!isForwarded) {
+    return null;
+  }
+
+  return {
+    isForwarded,
+    forwardingScore: typeof score === 'number' ? score : null,
+  };
+};
+
 export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatControllerDeps): void => {
   app.get('/chats/:jid/messages', requireAuth, async (c) => {
     const auth = c.get('auth');
@@ -82,6 +142,8 @@ export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatContr
       text: item.text,
       status: item.status,
       statusAt: item.statusAt?.toISOString() ?? null,
+      replyTo: extractReplyInfo(item.raw),
+      forward: extractForwardInfo(item.raw),
       raw: includeRaw ? item.raw : undefined,
     }));
 

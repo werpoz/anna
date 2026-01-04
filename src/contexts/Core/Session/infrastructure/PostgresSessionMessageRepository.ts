@@ -107,6 +107,23 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
     );
   }
 
+  async findRawByMessageId(params: {
+    sessionId: string;
+    messageId: string;
+  }): Promise<Record<string, unknown> | null> {
+    const result = await this.pool.query(
+      `SELECT raw
+         FROM session_messages
+        WHERE session_id = $1::uuid
+          AND message_id = $2
+        LIMIT 1`,
+      [params.sessionId, params.messageId]
+    );
+
+    const row = result.rows[0];
+    return row?.raw ?? null;
+  }
+
   async deleteBySession(sessionId: string): Promise<void> {
     await this.pool.query('DELETE FROM session_messages WHERE session_id = $1', [sessionId]);
   }
