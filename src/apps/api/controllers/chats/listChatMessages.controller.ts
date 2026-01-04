@@ -80,6 +80,8 @@ export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatContr
       timestamp: item.timestamp?.toISOString() ?? null,
       type: item.type,
       text: item.text,
+      status: item.status,
+      statusAt: item.statusAt?.toISOString() ?? null,
       raw: includeRaw ? item.raw : undefined,
     }));
 

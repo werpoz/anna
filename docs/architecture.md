@@ -29,10 +29,13 @@ Entidades y persistencia clave:
 - `Session`: estado (`pending_qr`, `connected`, `disconnected`), `phone`, `tenantId`.
 - `session_messages`: historial por chat con `message_id`, `from_me`, `timestamp`, `raw`.
 - `session_chats`: resumen por chat (`lastMessageTs`, `lastMessageText`, `unreadCount`).
+- `session_contacts`: contactos/perfiles por sesion (`name`, `notify`, `imgUrl`, `status`).
 
 Eventos clave:
 - `session.created`, `session.qr.updated`, `session.status.connected`, `session.status.disconnected`
 - `session.history.sync`, `session.messages.upsert`
+- `session.contacts.upsert`
+- `session.messages.update`
 
 ## Eventos y Outbox
 - Los agregados publican eventos de dominio.
@@ -67,6 +70,10 @@ Notas MVP:
    - `session.history.sync` y `session.messages.upsert` se persisten en Postgres.
    - Tablas: `session_messages` (historial) y `session_chats` (resumen por chat).
 
+6) **Persistencia de contactos y status**:
+   - `session.contacts.upsert` persiste en `session_contacts`.
+   - `session.messages.update` actualiza `status` y `status_at` en `session_messages`.
+
 6) **Realtime WebSocket**:
    - La API consume `domain-events` y emite a `ws://.../ws/sessions`.
    - Filtra por `tenantId` y solo envía eventos del usuario autenticado.
@@ -84,6 +91,7 @@ Endpoints actuales relevantes:
 - `POST /auth/login`, `POST /auth/refresh`, `POST /auth/logout`, `POST /auth/logout-all`.
 - `POST /sessions`, `POST /sessions/:id/stop`, `DELETE /sessions/:id`, `POST /sessions/:id/messages`.
 - `GET /chats`, `GET /chats/:jid/messages`, `POST /chats/:jid/messages`.
+- `GET /contacts`.
 - WebSocket `ws://.../ws/sessions` con eventos del tenant autenticado.
 
 ## DI / Bootstrap

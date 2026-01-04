@@ -4,6 +4,8 @@ export type SessionProviderHandlers = {
   onDisconnected: (reason: string, disconnectedAt: Date) => Promise<void> | void;
   onHistorySync?: (payload: SessionHistorySyncPayload) => Promise<void> | void;
   onMessagesUpsert?: (payload: SessionMessagesUpsertPayload) => Promise<void> | void;
+  onContactsUpsert?: (payload: SessionContactsUpsertPayload) => Promise<void> | void;
+  onMessagesUpdate?: (payload: SessionMessagesUpdatePayload) => Promise<void> | void;
 };
 
 export type SessionMessageSummary = {
@@ -14,7 +16,20 @@ export type SessionMessageSummary = {
   timestamp?: number;
   type?: string;
   text?: string;
+  status?: string;
+  statusAt?: number;
   raw?: Record<string, unknown>;
+};
+
+export type SessionContactSummary = {
+  id: string;
+  lid?: string;
+  phoneNumber?: string;
+  name?: string;
+  notify?: string;
+  verifiedName?: string;
+  imgUrl?: string | null;
+  status?: string;
 };
 
 export type SessionHistorySyncPayload = {
@@ -33,6 +48,28 @@ export type SessionMessagesUpsertPayload = {
   requestId?: string;
   messagesCount: number;
   messages: SessionMessageSummary[];
+};
+
+export type SessionContactsUpsertPayload = {
+  contactsCount: number;
+  contactsTruncated: boolean;
+  contacts: SessionContactSummary[];
+  source?: 'history' | 'event';
+};
+
+export type SessionMessageStatusUpdate = {
+  messageId: string;
+  remoteJid?: string;
+  participant?: string;
+  fromMe?: boolean;
+  status?: string | null;
+  statusAt?: number | null;
+};
+
+export type SessionMessagesUpdatePayload = {
+  updatesCount: number;
+  updates: SessionMessageStatusUpdate[];
+  source?: 'update' | 'receipt';
 };
 
 export type StartSessionRequest = {

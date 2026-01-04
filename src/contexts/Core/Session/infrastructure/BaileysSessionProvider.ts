@@ -5,6 +5,7 @@ import makeWASocket, {
   extractMessageContent,
   getContentType,
   proto,
+  type Contact,
   type WASocket,
 } from 'baileys';
 import type { Pool } from 'pg';
@@ -12,8 +13,12 @@ import type {
   SessionProvider,
   SessionProviderHandlers,
   SessionHistorySyncPayload,
+  SessionContactsUpsertPayload,
+  SessionContactSummary,
   SessionMessageSummary,
+  SessionMessageStatusUpdate,
   SessionMessagesUpsertPayload,
+  SessionMessagesUpdatePayload,
   StartSessionRequest,
   SendSessionMessageRequest,
 } from '@/contexts/Core/Session/application/SessionProvider';
@@ -35,6 +40,7 @@ type ActiveSession = {
 
 const MAX_HISTORY_MESSAGES = 200;
 const MAX_UPSERT_MESSAGES = 50;
+const MAX_CONTACTS = 200;
 
 export class BaileysSessionProvider implements SessionProvider {
   private readonly sessions: Map<string, ActiveSession>;
@@ -111,6 +117,20 @@ export class BaileysSessionProvider implements SessionProvider {
       };
 
       void request.handlers.onHistorySync(syncPayload);
+
+      if (request.handlers.onContactsUpsert && payload.contacts?.length) {
+        const contacts = payload.contacts
+          .slice(0, MAX_CONTACTS)
+          .map(buildContactSummary)
+          .filter(isContactSummary);
+        const contactsPayload: SessionContactsUpsertPayload = {
+          contactsCount: payload.contacts.length,
+          contactsTruncated: payload.contacts.length > contacts.length,
+          contacts,
+          source: 'history',
+        };
+        void request.handlers.onContactsUpsert(contactsPayload);
+      }
     });
 
     socket.ev.on('messages.upsert', (payload) => {
@@ -128,6 +148,76 @@ export class BaileysSessionProvider implements SessionProvider {
       };
 
       void request.handlers.onMessagesUpsert(upsertPayload);
+    });
+
+    socket.ev.on('contacts.upsert', (contacts) => {
+      if (!request.handlers.onContactsUpsert) {
+        return;
+      }
+      const summaries = contacts
+        .slice(0, MAX_CONTACTS)
+        .map(buildContactSummary)
+        .filter(isContactSummary);
+      const contactsPayload: SessionContactsUpsertPayload = {
+        contactsCount: contacts.length,
+        contactsTruncated: contacts.length > summaries.length,
+        contacts: summaries,
+        source: 'event',
+      };
+      void request.handlers.onContactsUpsert(contactsPayload);
+    });
+
+    socket.ev.on('contacts.update', (contacts) => {
+      if (!request.handlers.onContactsUpsert) {
+        return;
+      }
+      const summaries = contacts
+        .slice(0, MAX_CONTACTS)
+        .map(buildContactSummary)
+        .filter(isContactSummary);
+      const contactsPayload: SessionContactsUpsertPayload = {
+        contactsCount: contacts.length,
+        contactsTruncated: contacts.length > summaries.length,
+        contacts: summaries,
+        source: 'event',
+      };
+      void request.handlers.onContactsUpsert(contactsPayload);
+    });
+
+    socket.ev.on('messages.update', (updates) => {
+      if (!request.handlers.onMessagesUpdate) {
+        return;
+      }
+      const summaries = updates
+        .map((update) => buildMessageStatusUpdate(update.key, update.update))
+        .filter(isStatusUpdate);
+      if (!summaries.length) {
+        return;
+      }
+      const payload: SessionMessagesUpdatePayload = {
+        updatesCount: updates.length,
+        updates: summaries,
+        source: 'update',
+      };
+      void request.handlers.onMessagesUpdate(payload);
+    });
+
+    socket.ev.on('message-receipt.update', (updates) => {
+      if (!request.handlers.onMessagesUpdate) {
+        return;
+      }
+      const summaries = updates
+        .map((update) => buildReceiptStatusUpdate(update.key, update.receipt))
+        .filter(isStatusUpdate);
+      if (!summaries.length) {
+        return;
+      }
+      const payload: SessionMessagesUpdatePayload = {
+        updatesCount: updates.length,
+        updates: summaries,
+        source: 'receipt',
+      };
+      void request.handlers.onMessagesUpdate(payload);
     });
 
     this.sessions.set(request.sessionId, { socket, handlers: request.handlers });
@@ -224,9 +314,114 @@ const buildMessageSummary = (message: proto.IWebMessageInfo): SessionMessageSumm
     timestamp: message.messageTimestamp ? Number(message.messageTimestamp) : undefined,
     type: contentType ?? undefined,
     text,
+    status: resolveMessageStatus(message.status),
     raw,
   };
 };
+
+const buildContactSummary = (contact: Partial<Contact>): SessionContactSummary | null => {
+  const id = contact.id ?? '';
+  if (!id) {
+    return null;
+  }
+
+  return {
+    id,
+    lid: contact.lid,
+    phoneNumber: contact.phoneNumber,
+    name: contact.name,
+    notify: contact.notify,
+    verifiedName: contact.verifiedName,
+    imgUrl: contact.imgUrl,
+    status: contact.status,
+  };
+};
+
+const buildMessageStatusUpdate = (
+  key: proto.IMessageKey | null | undefined,
+  update: Partial<proto.IWebMessageInfo> | null | undefined
+): SessionMessageStatusUpdate | null => {
+  const messageId = key?.id ?? '';
+  if (!messageId) {
+    return null;
+  }
+
+  const status = resolveMessageStatus(update?.status);
+  const statusAt = null;
+  if (!status) {
+    return null;
+  }
+
+  return {
+    messageId,
+    remoteJid: key?.remoteJid ?? undefined,
+    participant: key?.participant ?? undefined,
+    fromMe: key?.fromMe ?? undefined,
+    status,
+    statusAt,
+  };
+};
+
+const buildReceiptStatusUpdate = (
+  key: proto.IMessageKey | null | undefined,
+  receipt: proto.IUserReceipt | null | undefined
+): SessionMessageStatusUpdate | null => {
+  const messageId = key?.id ?? '';
+  if (!messageId) {
+    return null;
+  }
+
+  const playedAt = resolveTimestampSeconds(receipt?.playedTimestamp);
+  const readAt = resolveTimestampSeconds(receipt?.readTimestamp);
+  const deliveredAt = resolveTimestampSeconds(receipt?.receiptTimestamp);
+  const status =
+    playedAt !== null ? 'played' : readAt !== null ? 'read' : deliveredAt !== null ? 'delivered' : null;
+  const statusAt = playedAt ?? readAt ?? deliveredAt;
+  if (!status && statusAt === null) {
+    return null;
+  }
+
+  return {
+    messageId,
+    remoteJid: key?.remoteJid ?? undefined,
+    participant: key?.participant ?? undefined,
+    fromMe: key?.fromMe ?? undefined,
+    status,
+    statusAt,
+  };
+};
+
+const resolveMessageStatus = (status: proto.WebMessageInfo.Status | null | undefined): string | undefined => {
+  if (status === null || status === undefined) {
+    return undefined;
+  }
+  if (typeof status === 'number') {
+    return proto.WebMessageInfo.Status[status] ?? String(status);
+  }
+  return String(status);
+};
+
+const resolveTimestampSeconds = (value: number | bigint | { toNumber?: () => number } | null | undefined): number | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (typeof value === 'bigint') {
+    return Number(value);
+  }
+  if (typeof value === 'object' && typeof value.toNumber === 'function') {
+    return value.toNumber();
+  }
+  return null;
+};
+
+const isContactSummary = (value: SessionContactSummary | null): value is SessionContactSummary => Boolean(value);
+
+const isStatusUpdate = (
+  value: SessionMessageStatusUpdate | null
+): value is SessionMessageStatusUpdate => Boolean(value);
 
 const resolveDisconnectReason = (error: unknown): string => {
   const statusCode = (error as { output?: { statusCode?: number } })?.output?.statusCode;

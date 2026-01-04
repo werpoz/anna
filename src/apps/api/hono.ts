@@ -1,10 +1,12 @@
 import { Hono } from 'hono';
+import type { ServerWebSocket } from 'bun';
 import { buildAppContext } from '@/contexts/Shared/infrastructure/di/bootstrap';
 import { registerUserRoutes } from '@/apps/api/controllers/users';
 import { registerMetricsRoutes } from '@/apps/api/controllers/metrics';
 import { registerAuthRoutes } from '@/apps/api/controllers/auth';
 import { registerSessionRoutes } from '@/apps/api/controllers/sessions';
 import { registerChatRoutes } from '@/apps/api/controllers/chats';
+import { registerContactRoutes } from '@/apps/api/controllers/contacts';
 import { initTelemetry } from '@/contexts/Shared/infrastructure/observability/telemetry';
 import { env } from '@/contexts/Shared/infrastructure/config/env';
 import type { AppEnv } from '@/apps/api/types';
@@ -13,6 +15,7 @@ import { cors } from 'hono/cors';
 import { verifyAccessToken } from '@/apps/api/http/verifyAccessToken';
 import { SessionWebsocketHub, type SessionSocketData } from '@/apps/api/realtime/SessionWebsocketHub';
 import { SessionEventStreamConsumer } from '@/apps/api/realtime/SessionEventStreamConsumer';
+import { SessionTenantId } from '@/contexts/Core/Session/domain/SessionTenantId';
 
 initTelemetry(`${env.otelServiceName}-hono`);
 
@@ -24,6 +27,7 @@ const {
   sessionRepository,
   sessionMessageRepository,
   sessionChatRepository,
+  sessionContactRepository,
 } = buildAppContext();
 
 const app = new Hono<AppEnv>();
@@ -52,6 +56,10 @@ registerChatRoutes(app, {
   messageRepository: sessionMessageRepository,
   chatRepository: sessionChatRepository,
 });
+registerContactRoutes(app, {
+  sessionRepository,
+  contactRepository: sessionContactRepository,
+});
 registerMetricsRoutes(app);
 
 const sessionHub = new SessionWebsocketHub();
@@ -62,6 +70,30 @@ const sessionEventsConsumer = new SessionEventStreamConsumer(
   sessionHub
 );
 void sessionEventsConsumer.start();
+
+const sendSessionSnapshot = async (ws: ServerWebSocket<SessionSocketData>): Promise<void> => {
+  const tenantId = ws.data.auth.userId;
+  const sessions = await sessionRepository.searchByTenant(new SessionTenantId(tenantId));
+  const connected = sessions.find((session) => session.status.value === 'connected');
+  const session = connected ?? sessions[0] ?? null;
+
+  if (ws.readyState !== 1) {
+    return;
+  }
+
+  const payload = {
+    tenantId,
+    session: session ? session.toPrimitives() : null,
+  };
+
+  ws.send(
+    JSON.stringify({
+      type: 'session.snapshot',
+      sessionId: session?.id.value ?? '',
+      payload,
+    })
+  );
+};
 
 const server = Bun.serve<SessionSocketData>({
   port: 3000,
@@ -95,6 +127,7 @@ const server = Bun.serve<SessionSocketData>({
     message: () => {},
     open: (ws) => {
       sessionHub.add(ws);
+      void sendSessionSnapshot(ws);
     },
     close: (ws) => {
       sessionHub.remove(ws);

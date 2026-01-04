@@ -9,12 +9,15 @@ ws://<host>/ws/sessions?accessToken=<token>
 ```
 
 Eventos emitidos por tenant:
+- `session.snapshot` (al conectar WS)
 - `session.created`
 - `session.qr.updated`
 - `session.status.connected`
 - `session.status.disconnected`
 - `session.history.sync`
 - `session.messages.upsert`
+- `session.messages.update`
+- `session.contacts.upsert`
 
 ## Endpoints principales
 
@@ -42,6 +45,9 @@ Chats:
 - `GET /chats`
 - `GET /chats/:jid/messages`
 - `POST /chats/:jid/messages`
+
+Contacts:
+- `GET /contacts`
 
 Metrics:
 - `GET /metrics` (si esta habilitado)
@@ -85,6 +91,21 @@ sequenceDiagram
   API-->>Client: accessToken nuevo + refresh rotado
 ```
 
+## Flujo de WS snapshot inicial
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Client as Cliente
+  participant WS as WebSocket
+  participant API as API
+  participant DB as Postgres
+
+  Client->>WS: conecta /ws/sessions?accessToken=...
+  WS->>API: valida token
+  API->>DB: busca session por tenant
+  WS-->>Client: session.snapshot (estado actual)
+```
+
 ## Flujo de sesion WhatsApp y sync
 ```mermaid
 sequenceDiagram
@@ -113,9 +134,15 @@ sequenceDiagram
   Worker-->>Redis: session.history.sync (batch)
   Redis-->>WS: history sync
   Redis-->>DB: event-consumer persiste session_messages / session_chats
+  Worker-->>Redis: session.contacts.upsert
+  Redis-->>WS: contacts upsert
+  Redis-->>DB: event-consumer persiste session_contacts
+  Worker-->>Redis: session.messages.update (receipts)
+  Redis-->>WS: messages update
+  Redis-->>DB: event-consumer actualiza status de session_messages
 ```
 
-## Flujo de chats y mensajes (API)
+## Flujo de chats, contactos y mensajes (API)
 ```mermaid
 sequenceDiagram
   autonumber
@@ -133,6 +160,10 @@ sequenceDiagram
   Client->>API: GET /chats/:jid/messages
   API->>DB: read session_messages
   API-->>Client: messages
+
+  Client->>API: GET /contacts
+  API->>DB: read session_contacts
+  API-->>Client: contacts
 
   Client->>API: POST /chats/:jid/messages
   API->>Redis: session.sendMessage (command)

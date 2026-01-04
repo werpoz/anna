@@ -10,12 +10,23 @@ export type SessionMessageRecord = {
   type: string | null;
   text: string | null;
   raw: Record<string, unknown> | null;
+  status: string | null;
+  statusAt: Date | null;
   createdAt: Date;
+  updatedAt: Date;
+};
+
+export type SessionMessageStatusRecord = {
+  sessionId: string;
+  messageId: string;
+  status: string | null;
+  statusAt: Date | null;
   updatedAt: Date;
 };
 
 export interface SessionMessageRepository {
   upsertMany(records: SessionMessageRecord[]): Promise<void>;
+  updateStatuses(records: SessionMessageStatusRecord[]): Promise<void>;
   deleteBySession(sessionId: string): Promise<void>;
   searchByChat(params: {
     sessionId: string;

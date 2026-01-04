@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 import type {
   SessionMessageRecord,
   SessionMessageRepository,
+  SessionMessageStatusRecord,
 } from '@/contexts/Core/Session/domain/SessionMessageRepository';
 
 export class PostgresSessionMessageRepository implements SessionMessageRepository {
@@ -24,6 +25,8 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
       'type',
       'text',
       'raw',
+      'status',
+      'status_at',
       'created_at',
       'updated_at',
     ];
@@ -43,6 +46,8 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
         record.type,
         record.text,
         record.raw ? JSON.stringify(record.raw) : null,
+        record.status,
+        record.statusAt,
         record.createdAt,
         record.updatedAt
       );
@@ -62,7 +67,42 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
          type = EXCLUDED.type,
          text = EXCLUDED.text,
          raw = EXCLUDED.raw,
+         status = COALESCE(EXCLUDED.status, session_messages.status),
+         status_at = COALESCE(EXCLUDED.status_at, session_messages.status_at),
          updated_at = EXCLUDED.updated_at`,
+      values
+    );
+  }
+
+  async updateStatuses(records: SessionMessageStatusRecord[]): Promise<void> {
+    if (!records.length) {
+      return;
+    }
+
+    const columns = ['session_id', 'message_id', 'status', 'status_at', 'updated_at'];
+    const values: Array<unknown> = [];
+    const placeholders = records.map((record, index) => {
+      const offset = index * columns.length;
+      values.push(
+        record.sessionId,
+        record.messageId,
+        record.status,
+        record.statusAt,
+        record.updatedAt
+      );
+      const slots = columns.map((_, columnIndex) => `$${offset + columnIndex + 1}`);
+      return `(${slots.join(', ')})`;
+    });
+
+    await this.pool.query(
+      `UPDATE session_messages AS sm
+         SET status = COALESCE(v.status, sm.status),
+             status_at = COALESCE(v.status_at, sm.status_at),
+             updated_at = v.updated_at
+        FROM (VALUES ${placeholders.join(', ')})
+          AS v(session_id, message_id, status, status_at, updated_at)
+       WHERE sm.session_id = v.session_id::uuid
+         AND sm.message_id = v.message_id`,
       values
     );
   }
@@ -88,7 +128,7 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
 
     const result = await this.pool.query(
       `SELECT id, tenant_id, session_id, chat_jid, message_id, from_me, sender_jid, timestamp,
-              type, text, raw, created_at, updated_at
+              type, text, raw, status, status_at, created_at, updated_at
          FROM session_messages
         WHERE session_id = $1
           AND chat_jid = $2
@@ -110,6 +150,8 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
       type: row.type,
       text: row.text,
       raw: row.raw,
+      status: row.status,
+      statusAt: row.status_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));

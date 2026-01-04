@@ -355,6 +355,44 @@ const ConsolePage = () => {
             });
         }
 
+        if (data.type === 'session.snapshot') {
+          const snapshot = data.payload?.session;
+          if (!snapshot) {
+            setSessionStatus('session: idle');
+            setSessionLive(false);
+          } else {
+            setSessionId(snapshot.id);
+            setHasRequestedSession(true);
+            if (snapshot.status === 'connected') {
+              setSessionStatus('session: connected');
+              setSessionLive(true);
+              void loadChats({ sessionIdOverride: snapshot.id });
+            } else if (snapshot.status === 'pending_qr') {
+              setSessionStatus('session: pending_qr');
+              setSessionLive(true);
+              if (snapshot.qr) {
+                setQr(snapshot.qr);
+                setQrExpires(`expires: ${snapshot.qrExpiresAt ?? '-'}`);
+                const version = ++qrVersionRef.current;
+                buildQrDataUrl(snapshot.qr)
+                  .then((url) => {
+                    if (qrVersionRef.current === version) {
+                      setQrImage(url);
+                    }
+                  })
+                  .catch(() => {
+                    if (qrVersionRef.current === version) {
+                      setQrImage('');
+                    }
+                  });
+              }
+            } else if (snapshot.status === 'disconnected') {
+              setSessionStatus('session: disconnected');
+              setSessionLive(false);
+            }
+          }
+        }
+
         if (data.type === 'session.status.connected') {
           setSessionStatus('session: connected');
           setSessionLive(true);

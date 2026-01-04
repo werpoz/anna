@@ -95,6 +95,8 @@ docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0004__sessions.sql
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0005__session_messages.sql
 docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0006__session_chats.sql
+docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0007__session_contacts.sql
+docker compose exec -T postgres psql -U anna -d anna -f - < database/migrations/0008__session_message_status.sql
 ```
 
 Runner de migraciones (usa `DATABASE_URL`):
@@ -257,6 +259,7 @@ Paginado de mensajes por chat:
 curl "http://localhost:3000/chats/<jid>/messages?limit=50" \
   -H 'Authorization: Bearer <accessToken>'
 ```
+Respuesta incluye `status` y `statusAt` cuando hay updates de entrega/lectura.
 
 Enviar mensaje por chat:
 ```bash
@@ -264,6 +267,13 @@ curl -X POST http://localhost:3000/chats/<jid>/messages \
   -H 'Authorization: Bearer <accessToken>' \
   -H 'Content-Type: application/json' \
   -d '{"content":"Hola!"}'
+```
+
+## Contactos (backend)
+Listar contactos por tenant/sesion:
+```bash
+curl http://localhost:3000/contacts \
+  -H 'Authorization: Bearer <accessToken>'
 ```
 
 Notas:
@@ -276,12 +286,15 @@ ws://localhost:3000/ws/sessions?accessToken=<accessToken>
 ```
 
 Eventos esperados:
+- `session.snapshot` (al conectar WS)
 - `session.created`
 - `session.qr.updated`
 - `session.status.connected`
 - `session.status.disconnected`
 - `session.history.sync`
 - `session.messages.upsert`
+- `session.messages.update`
+- `session.contacts.upsert`
 
 Notas de historial/mensajes:
 - `session.history.sync` incluye resumen de chats/contacts/mensajes (limitado en tamaño).

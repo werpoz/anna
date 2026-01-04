@@ -32,6 +32,7 @@ const main = async (): Promise<void> => {
       await pool.query('DELETE FROM session_chats');
       await pool.query('DELETE FROM session_auth_keys');
       await pool.query('DELETE FROM session_auth_creds');
+      await pool.query('DELETE FROM session_contacts');
       await pool.query('DELETE FROM sessions');
       await pool.query('COMMIT');
       console.log('[db:purge-session] ok: all sessions removed');
@@ -40,6 +41,7 @@ const main = async (): Promise<void> => {
       await pool.query('DELETE FROM session_chats WHERE session_id = $1::uuid', [sessionId]);
       await pool.query('DELETE FROM session_auth_keys WHERE session_id = $1', [sessionId]);
       await pool.query('DELETE FROM session_auth_creds WHERE session_id = $1', [sessionId]);
+      await pool.query('DELETE FROM session_contacts WHERE session_id = $1::uuid', [sessionId]);
       await pool.query('DELETE FROM sessions WHERE id = $1::uuid', [sessionId]);
       await pool.query('COMMIT');
       console.log(`[db:purge-session] ok: ${sessionId}`);
