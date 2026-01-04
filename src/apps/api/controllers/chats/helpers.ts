@@ -21,5 +21,9 @@ export const resolveSessionIdForTenant = async (
   }
 
   const connected = sessions.find((item) => item.status.value === 'connected');
-  return (connected ?? sessions[0]).id.value;
+  const fallback = connected ?? sessions.at(0);
+  if (!fallback) {
+    return null;
+  }
+  return fallback.id.value;
 };
