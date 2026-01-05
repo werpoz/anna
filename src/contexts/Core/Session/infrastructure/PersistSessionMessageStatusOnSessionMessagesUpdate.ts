@@ -5,12 +5,34 @@ import { SessionMessagesUpdateDomainEvent } from '@/contexts/Core/Session/domain
 import type { SessionMessageStatusRecord } from '@/contexts/Core/Session/domain/SessionMessageRepository';
 import { PostgresSessionMessageRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageRepository';
 
-const resolveTimestamp = (value?: number | null): Date | null => {
-  if (!value) {
+const resolveTimestamp = (value?: number | string | null): Date | null => {
+  if (value === null || value === undefined) {
     return null;
   }
-  const millis = value > 1_000_000_000_000 ? value : value * 1000;
-  return new Date(millis);
+
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) {
+      return null;
+    }
+    const millis = value > 1_000_000_000_000 ? value : value * 1000;
+    return new Date(millis);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const numeric = Number(trimmed);
+    if (!Number.isNaN(numeric)) {
+      const millis = numeric > 1_000_000_000_000 ? numeric : numeric * 1000;
+      return new Date(millis);
+    }
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  return null;
 };
 
 export class PersistSessionMessageStatusOnSessionMessagesUpdate

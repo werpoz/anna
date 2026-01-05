@@ -38,6 +38,7 @@ import { PostgresSessionChatRepository } from '@/contexts/Core/Session/infrastru
 import { PostgresSessionContactRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionContactRepository';
 import { PostgresSessionMessageReactionRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageReactionRepository';
 import { PostgresSessionMessageMediaRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageMediaRepository';
+import { PostgresSessionChatAliasRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatAliasRepository';
 
 initTelemetry(`${env.otelServiceName}-sessions`);
 
@@ -102,6 +103,7 @@ const sessionChatRepository = new PostgresSessionChatRepository(pool);
 const sessionContactRepository = new PostgresSessionContactRepository(pool);
 const sessionMessageReactionRepository = new PostgresSessionMessageReactionRepository(pool);
 const sessionMessageMediaRepository = new PostgresSessionMessageMediaRepository(pool);
+const sessionChatAliasRepository = new PostgresSessionChatAliasRepository(pool);
 const deleteSession = new DeleteSession(
   sessionRepository,
   sessionAuthRepository,
@@ -110,6 +112,7 @@ const deleteSession = new DeleteSession(
   sessionContactRepository,
   sessionMessageReactionRepository,
   sessionMessageMediaRepository,
+  sessionChatAliasRepository,
   sessionProvider
 );
 const readSessionMessages = new ReadSessionMessages(

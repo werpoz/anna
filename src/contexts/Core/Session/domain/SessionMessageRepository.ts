@@ -51,7 +51,7 @@ export interface SessionMessageRepository {
   markDeleted(records: SessionMessageDeleteRecord[]): Promise<void>;
   markDeletedByChat(params: {
     sessionId: string;
-    chatJid: string;
+    chatJids: string[];
     deletedAt: Date | null;
     updatedAt: Date;
   }): Promise<void>;
@@ -59,7 +59,7 @@ export interface SessionMessageRepository {
   deleteBySession(sessionId: string): Promise<void>;
   searchByChat(params: {
     sessionId: string;
-    chatJid: string;
+    chatJids: string[];
     limit: number;
     cursor?: { timestamp: Date; messageId: string };
   }): Promise<SessionMessageRecord[]>;

@@ -39,6 +39,7 @@ import { PostgresSessionChatRepository } from '@/contexts/Core/Session/infrastru
 import { PostgresSessionContactRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionContactRepository';
 import { PostgresSessionMessageReactionRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageReactionRepository';
 import { PostgresSessionMessageMediaRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageMediaRepository';
+import { PostgresSessionChatAliasRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatAliasRepository';
 import type { UserRepository } from '@/contexts/Core/User/domain/UserRepository';
 import type { RefreshTokenRepository } from '@/contexts/Core/Auth/domain/RefreshTokenRepository';
 import type { EventBus } from '@/contexts/Shared/domain/EventBus';
@@ -52,6 +53,7 @@ export type AppContext = {
   sessionRepository: PostgresSessionRepository;
   sessionMessageRepository: PostgresSessionMessageRepository;
   sessionChatRepository: PostgresSessionChatRepository;
+  sessionChatAliasRepository: PostgresSessionChatAliasRepository;
   sessionContactRepository: PostgresSessionContactRepository;
   sessionMessageReactionRepository: PostgresSessionMessageReactionRepository;
   sessionMessageMediaRepository: PostgresSessionMessageMediaRepository;
@@ -134,6 +136,7 @@ export const buildAppContext = (): AppContext => {
   const sessionRepository = new PostgresSessionRepository(getPool());
   const sessionMessageRepository = new PostgresSessionMessageRepository(getPool());
   const sessionChatRepository = new PostgresSessionChatRepository(getPool());
+  const sessionChatAliasRepository = new PostgresSessionChatAliasRepository(getPool());
   const sessionContactRepository = new PostgresSessionContactRepository(getPool());
   const sessionMessageReactionRepository = new PostgresSessionMessageReactionRepository(getPool());
   const sessionMessageMediaRepository = new PostgresSessionMessageMediaRepository(getPool());
@@ -146,6 +149,7 @@ export const buildAppContext = (): AppContext => {
     sessionRepository,
     sessionMessageRepository,
     sessionChatRepository,
+    sessionChatAliasRepository,
     sessionContactRepository,
     sessionMessageReactionRepository,
     sessionMessageMediaRepository,

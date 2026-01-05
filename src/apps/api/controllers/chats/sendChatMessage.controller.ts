@@ -48,6 +48,22 @@ const normalizeMedia = (payload: SendChatMessagePayload) => {
   };
 };
 
+const resolveSendJid = async (
+  deps: ChatControllerDeps,
+  sessionId: string,
+  inputJid: string
+): Promise<string> => {
+  const chatKey = await deps.chatAliasRepository.resolveChatKey({ sessionId, alias: inputJid });
+  if (!chatKey) {
+    return inputJid;
+  }
+  const aliases = await deps.chatAliasRepository.listAliasesByChatKey({ sessionId, chatKey });
+  const preferred = aliases.find(
+    (alias) => alias.endsWith('@s.whatsapp.net') || alias.endsWith('@g.us')
+  );
+  return preferred ?? inputJid;
+};
+
 export const registerSendChatMessageRoute = (app: Hono<AppEnv>, deps: ChatControllerDeps): void => {
   app.post('/chats/:jid/messages', requireAuth, async (c) => {
     const auth = c.get('auth');
@@ -82,12 +98,14 @@ export const registerSendChatMessageRoute = (app: Hono<AppEnv>, deps: ChatContro
       return c.json({ message: 'session not found' }, 404);
     }
 
+    const inputJid = c.req.param('jid');
+    const targetJid = await resolveSendJid(deps, resolvedSessionId, inputJid);
     const commandId = crypto.randomUUID();
     await deps.sessionCommandPublisher.publish({
       type: 'session.sendMessage',
       commandId,
       sessionId: resolvedSessionId,
-      to: c.req.param('jid'),
+      to: targetJid,
       content: media ? undefined : payload.content,
       caption: media ? payload.caption ?? payload.content ?? null : null,
       ptt: payload.ptt ?? false,

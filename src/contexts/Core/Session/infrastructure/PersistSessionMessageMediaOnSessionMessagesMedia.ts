@@ -4,6 +4,8 @@ import type { DomainEventSubscriber } from '@/contexts/Shared/domain/DomainEvent
 import { SessionMessagesMediaDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesMediaDomainEvent';
 import type { SessionMessageMediaRecord } from '@/contexts/Core/Session/domain/SessionMessageMediaRepository';
 import { PostgresSessionMessageMediaRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageMediaRepository';
+import { PostgresSessionChatAliasRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatAliasRepository';
+import { ensureAliases } from '@/contexts/Core/Session/infrastructure/chatAlias';
 
 const resolveTimestamp = (value?: number | null): Date | null => {
   if (!value) {
@@ -17,10 +19,12 @@ export class PersistSessionMessageMediaOnSessionMessagesMedia
   implements DomainEventSubscriber<SessionMessagesMediaDomainEvent>
 {
   private readonly repository: PostgresSessionMessageMediaRepository;
+  private readonly chatAliasRepository: PostgresSessionChatAliasRepository;
 
   constructor() {
     const pool = new Pool({ connectionString: env.databaseUrl });
     this.repository = new PostgresSessionMessageMediaRepository(pool);
+    this.chatAliasRepository = new PostgresSessionChatAliasRepository(pool);
   }
 
   subscribedTo(): Array<typeof SessionMessagesMediaDomainEvent> {
@@ -50,6 +54,14 @@ export class PersistSessionMessageMediaOnSessionMessagesMedia
         updatedAt: now,
       }))
       .filter((record) => Boolean(record.url));
+
+    await ensureAliases({
+      repository: this.chatAliasRepository,
+      sessionId: domainEvent.aggregateId,
+      tenantId: domainEvent.tenantId,
+      aliases: records.map((record) => record.chatJid),
+      now,
+    });
 
     await this.repository.upsertMany(records);
   }

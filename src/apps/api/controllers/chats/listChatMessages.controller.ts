@@ -44,14 +44,76 @@ const encodeCursor = (timestamp: Date, messageId: string): string => {
   return Buffer.from(payload).toString('base64');
 };
 
+const resolveChatJids = async (
+  deps: ChatControllerDeps,
+  sessionId: string,
+  chatJid: string
+): Promise<string[]> => {
+  const chatKey = await deps.chatAliasRepository.resolveChatKey({ sessionId, alias: chatJid });
+  if (!chatKey) {
+    return [chatJid];
+  }
+  const aliases = await deps.chatAliasRepository.listAliasesByChatKey({ sessionId, chatKey });
+  return aliases.length ? aliases : [chatJid];
+};
+
 const extractContextInfo = (raw: Record<string, unknown> | null): proto.IContextInfo | null => {
-  const message = (raw as { message?: proto.IMessage } | null)?.message;
+  const message = (raw as { message?: proto.IMessage } | null)?.message as
+    | Record<string, unknown>
+    | undefined;
   if (!message) {
     return null;
   }
 
-  const content = extractMessageContent(message);
-  return (content as { contextInfo?: proto.IContextInfo } | null)?.contextInfo ?? null;
+  const content = extractMessageContent(message as proto.IMessage);
+  const directContext = (content as { contextInfo?: proto.IContextInfo } | null)?.contextInfo ?? null;
+  if (directContext) {
+    return directContext;
+  }
+
+  const messageAny = message as {
+    extendedTextMessage?: { contextInfo?: proto.IContextInfo };
+    imageMessage?: { contextInfo?: proto.IContextInfo };
+    videoMessage?: { contextInfo?: proto.IContextInfo };
+    documentMessage?: { contextInfo?: proto.IContextInfo };
+    audioMessage?: { contextInfo?: proto.IContextInfo };
+    stickerMessage?: { contextInfo?: proto.IContextInfo };
+    ephemeralMessage?: { message?: Record<string, unknown> };
+    viewOnceMessage?: { message?: Record<string, unknown> };
+    viewOnceMessageV2?: { message?: Record<string, unknown> };
+    viewOnceMessageV2Extension?: { message?: Record<string, unknown> };
+    editedMessage?: { message?: Record<string, unknown> };
+    documentWithCaptionMessage?: { message?: Record<string, unknown> };
+  };
+
+  const inlineContext =
+    messageAny.extendedTextMessage?.contextInfo ??
+    messageAny.imageMessage?.contextInfo ??
+    messageAny.videoMessage?.contextInfo ??
+    messageAny.documentMessage?.contextInfo ??
+    messageAny.audioMessage?.contextInfo ??
+    messageAny.stickerMessage?.contextInfo ??
+    null;
+
+  if (inlineContext) {
+    return inlineContext;
+  }
+
+  const wrappedMessage =
+    messageAny.ephemeralMessage?.message ??
+    messageAny.viewOnceMessage?.message ??
+    messageAny.viewOnceMessageV2?.message ??
+    messageAny.viewOnceMessageV2Extension?.message ??
+    messageAny.editedMessage?.message ??
+    messageAny.documentWithCaptionMessage?.message ??
+    null;
+
+  if (!wrappedMessage) {
+    return null;
+  }
+
+  const wrappedContent = extractMessageContent(wrappedMessage as proto.IMessage);
+  return (wrappedContent as { contextInfo?: proto.IContextInfo } | null)?.contextInfo ?? null;
 };
 
 const extractReplyInfo = (raw: Record<string, unknown> | null) => {
@@ -103,6 +165,52 @@ const extractForwardInfo = (raw: Record<string, unknown> | null) => {
   };
 };
 
+const pickContactName = (contact: {
+  name?: string | null;
+  notify?: string | null;
+  verifiedName?: string | null;
+  phoneNumber?: string | null;
+}): string | null =>
+  contact.name ?? contact.notify ?? contact.verifiedName ?? contact.phoneNumber ?? null;
+
+const buildContactNameMap = (
+  contacts: Array<{
+    contactJid: string;
+    contactLid: string | null;
+    name?: string | null;
+    notify?: string | null;
+    verifiedName?: string | null;
+    phoneNumber?: string | null;
+  }>
+): Record<string, string> => {
+  const map: Record<string, string> = {};
+  for (const contact of contacts) {
+    const name = pickContactName(contact);
+    if (!name) {
+      continue;
+    }
+    if (contact.contactJid) {
+      map[contact.contactJid] = name;
+    }
+    if (contact.contactLid) {
+      map[contact.contactLid] = name;
+    }
+  }
+  return map;
+};
+
+const extractMentionJids = (raw: Record<string, unknown> | null): string[] => {
+  const contextInfo = extractContextInfo(raw);
+  const mentioned = contextInfo?.mentionedJid;
+  if (!Array.isArray(mentioned)) {
+    return [];
+  }
+  const filtered = mentioned.filter(
+    (jid): jid is string => typeof jid === 'string' && jid.trim().length > 0
+  );
+  return [...new Set(filtered)];
+};
+
 export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatControllerDeps): void => {
   app.get('/chats/:jid/messages', requireAuth, async (c) => {
     const auth = c.get('auth');
@@ -125,10 +233,11 @@ export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatContr
     const limit = parseLimit(c.req.query('limit') ?? undefined);
     const cursor = decodeCursor(c.req.query('cursor') ?? undefined);
     const includeRaw = c.req.query('includeRaw') === 'true';
+    const chatJids = await resolveChatJids(deps, resolvedSessionId, chatJid);
 
     const items = await deps.messageRepository.searchByChat({
       sessionId: resolvedSessionId,
-      chatJid,
+      chatJids,
       limit,
       cursor: cursor ?? undefined,
     });
@@ -146,6 +255,26 @@ export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatContr
           messageIds,
         })
       : [];
+
+    const mentionJidsByMessage = new Map<string, string[]>();
+    const mentionJidSet = new Set<string>();
+    for (const item of items) {
+      const mentions = extractMentionJids(item.raw);
+      if (!mentions.length) {
+        continue;
+      }
+      mentionJidsByMessage.set(item.messageId, mentions);
+      for (const jid of mentions) {
+        mentionJidSet.add(jid);
+      }
+    }
+
+    const mentionNameMap =
+      mentionJidSet.size > 0
+        ? buildContactNameMap(
+            await deps.contactRepository.listByTenant(auth.userId, resolvedSessionId)
+          )
+        : {};
 
     const reactionsByMessage = reactions.reduce<Record<string, typeof reactions>>((acc, reaction) => {
       const bucket = acc[reaction.messageId] ?? [];
@@ -188,6 +317,10 @@ export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatContr
       media: mediaByMessage[item.messageId]?.[0] ?? null,
       replyTo: extractReplyInfo(item.raw),
       forward: extractForwardInfo(item.raw),
+      mentions: (mentionJidsByMessage.get(item.messageId) ?? []).map((jid) => ({
+        jid,
+        name: mentionNameMap[jid] ?? null,
+      })),
       raw: includeRaw ? item.raw : undefined,
     }));
 

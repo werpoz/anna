@@ -5,6 +5,8 @@ import { SessionHistorySyncDomainEvent } from '@/contexts/Core/Session/domain/ev
 import type { SessionMessageSummary } from '@/contexts/Core/Session/application/SessionProvider';
 import type { SessionMessageRecord } from '@/contexts/Core/Session/domain/SessionMessageRepository';
 import { PostgresSessionMessageRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageRepository';
+import { PostgresSessionChatAliasRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatAliasRepository';
+import { ensureAliases } from '@/contexts/Core/Session/infrastructure/chatAlias';
 
 const resolveTimestamp = (value?: number): Date | null => {
   if (!value) {
@@ -52,10 +54,12 @@ export class PersistSessionHistoryOnSessionHistorySync
   implements DomainEventSubscriber<SessionHistorySyncDomainEvent>
 {
   private readonly repository: PostgresSessionMessageRepository;
+  private readonly chatAliasRepository: PostgresSessionChatAliasRepository;
 
   constructor() {
     const pool = new Pool({ connectionString: env.databaseUrl });
     this.repository = new PostgresSessionMessageRepository(pool);
+    this.chatAliasRepository = new PostgresSessionChatAliasRepository(pool);
   }
 
   subscribedTo(): Array<typeof SessionHistorySyncDomainEvent> {
@@ -67,6 +71,14 @@ export class PersistSessionHistoryOnSessionHistorySync
     const records = domainEvent.payload.messages
       .map((summary) => toRecord(summary, domainEvent.aggregateId, domainEvent.tenantId, now))
       .filter((record): record is SessionMessageRecord => Boolean(record));
+
+    await ensureAliases({
+      repository: this.chatAliasRepository,
+      sessionId: domainEvent.aggregateId,
+      tenantId: domainEvent.tenantId,
+      aliases: records.map((record) => record.chatJid),
+      now,
+    });
 
     await this.repository.upsertMany(records);
   }

@@ -28,6 +28,7 @@ const {
   sessionRepository,
   sessionMessageRepository,
   sessionChatRepository,
+  sessionChatAliasRepository,
   sessionContactRepository,
   sessionMessageReactionRepository,
   sessionMessageMediaRepository,
@@ -60,6 +61,8 @@ registerChatRoutes(app, {
   chatRepository: sessionChatRepository,
   reactionRepository: sessionMessageReactionRepository,
   mediaRepository: sessionMessageMediaRepository,
+  chatAliasRepository: sessionChatAliasRepository,
+  contactRepository: sessionContactRepository,
 });
 registerContactRoutes(app, {
   sessionRepository,

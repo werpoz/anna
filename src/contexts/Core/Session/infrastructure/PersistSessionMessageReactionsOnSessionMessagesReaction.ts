@@ -4,6 +4,8 @@ import type { DomainEventSubscriber } from '@/contexts/Shared/domain/DomainEvent
 import { SessionMessagesReactionDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesReactionDomainEvent';
 import type { SessionMessageReactionRecord } from '@/contexts/Core/Session/domain/SessionMessageReactionRepository';
 import { PostgresSessionMessageReactionRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageReactionRepository';
+import { PostgresSessionChatAliasRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatAliasRepository';
+import { ensureAliases } from '@/contexts/Core/Session/infrastructure/chatAlias';
 
 const resolveTimestamp = (value?: number | null): Date | null => {
   if (!value) {
@@ -17,10 +19,12 @@ export class PersistSessionMessageReactionsOnSessionMessagesReaction
   implements DomainEventSubscriber<SessionMessagesReactionDomainEvent>
 {
   private readonly repository: PostgresSessionMessageReactionRepository;
+  private readonly chatAliasRepository: PostgresSessionChatAliasRepository;
 
   constructor() {
     const pool = new Pool({ connectionString: env.databaseUrl });
     this.repository = new PostgresSessionMessageReactionRepository(pool);
+    this.chatAliasRepository = new PostgresSessionChatAliasRepository(pool);
   }
 
   subscribedTo(): Array<typeof SessionMessagesReactionDomainEvent> {
@@ -47,6 +51,14 @@ export class PersistSessionMessageReactionsOnSessionMessagesReaction
         createdAt: now,
         updatedAt: now,
       }));
+
+    await ensureAliases({
+      repository: this.chatAliasRepository,
+      sessionId: domainEvent.aggregateId,
+      tenantId: domainEvent.tenantId,
+      aliases: records.map((record) => record.chatJid),
+      now,
+    });
 
     await this.repository.upsertMany(records);
   }

@@ -4,6 +4,7 @@ import type { DomainEventSubscriber } from '@/contexts/Shared/domain/DomainEvent
 import { SessionMessagesDeleteDomainEvent } from '@/contexts/Core/Session/domain/events/SessionMessagesDeleteDomainEvent';
 import type { SessionMessageDeleteRecord } from '@/contexts/Core/Session/domain/SessionMessageRepository';
 import { PostgresSessionMessageRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionMessageRepository';
+import { PostgresSessionChatAliasRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatAliasRepository';
 
 const resolveTimestamp = (value?: number | null): Date | null => {
   if (!value) {
@@ -17,10 +18,12 @@ export class PersistSessionMessageDeletesOnSessionMessagesDelete
   implements DomainEventSubscriber<SessionMessagesDeleteDomainEvent>
 {
   private readonly repository: PostgresSessionMessageRepository;
+  private readonly chatAliasRepository: PostgresSessionChatAliasRepository;
 
   constructor() {
     const pool = new Pool({ connectionString: env.databaseUrl });
     this.repository = new PostgresSessionMessageRepository(pool);
+    this.chatAliasRepository = new PostgresSessionChatAliasRepository(pool);
   }
 
   subscribedTo(): Array<typeof SessionMessagesDeleteDomainEvent> {
@@ -31,9 +34,20 @@ export class PersistSessionMessageDeletesOnSessionMessagesDelete
     const now = new Date();
 
     if (domainEvent.payload.scope === 'chat' && domainEvent.payload.chatJid) {
+      const chatKey = await this.chatAliasRepository.resolveChatKey({
+        sessionId: domainEvent.aggregateId,
+        alias: domainEvent.payload.chatJid,
+      });
+      const aliases = chatKey
+        ? await this.chatAliasRepository.listAliasesByChatKey({
+            sessionId: domainEvent.aggregateId,
+            chatKey,
+          })
+        : [];
+      const chatJids = aliases.length ? aliases : [domainEvent.payload.chatJid];
       await this.repository.markDeletedByChat({
         sessionId: domainEvent.aggregateId,
-        chatJid: domainEvent.payload.chatJid,
+        chatJids,
         deletedAt: now,
         updatedAt: now,
       });

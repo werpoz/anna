@@ -6,6 +6,7 @@ import type { SessionChatRepository } from '@/contexts/Core/Session/domain/Sessi
 import type { SessionContactRepository } from '@/contexts/Core/Session/domain/SessionContactRepository';
 import type { SessionMessageReactionRepository } from '@/contexts/Core/Session/domain/SessionMessageReactionRepository';
 import type { SessionMessageMediaRepository } from '@/contexts/Core/Session/domain/SessionMessageMediaRepository';
+import type { SessionChatAliasRepository } from '@/contexts/Core/Session/domain/SessionChatAliasRepository';
 import type { SessionProvider } from '@/contexts/Core/Session/application/SessionProvider';
 
 export class DeleteSession {
@@ -17,6 +18,7 @@ export class DeleteSession {
     private readonly contactRepository: SessionContactRepository,
     private readonly reactionRepository: SessionMessageReactionRepository,
     private readonly mediaRepository: SessionMessageMediaRepository,
+    private readonly chatAliasRepository: SessionChatAliasRepository,
     private readonly provider: SessionProvider
   ) {}
 
@@ -28,6 +30,7 @@ export class DeleteSession {
     await this.reactionRepository.deleteBySession(id.value);
     await this.mediaRepository.deleteBySession(id.value);
     await this.chatRepository.deleteBySession(id.value);
+    await this.chatAliasRepository.deleteBySession(id.value);
     await this.contactRepository.deleteBySession(id.value);
     await this.repository.delete(id);
     await this.authRepository.delete(id);

@@ -111,8 +111,8 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
     await this.pool.query(
       `UPDATE session_messages AS sm
          SET status = COALESCE(v.status, sm.status),
-             status_at = COALESCE(v.status_at, sm.status_at),
-             updated_at = v.updated_at
+             status_at = COALESCE(v.status_at::timestamptz, sm.status_at),
+             updated_at = v.updated_at::timestamptz
         FROM (VALUES ${placeholders.join(', ')})
           AS v(session_id, message_id, status, status_at, updated_at)
        WHERE sm.session_id = v.session_id::uuid
@@ -186,18 +186,22 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
 
   async markDeletedByChat(params: {
     sessionId: string;
-    chatJid: string;
+    chatJids: string[];
     deletedAt: Date | null;
     updatedAt: Date;
   }): Promise<void> {
+    if (!params.chatJids.length) {
+      return;
+    }
+
     await this.pool.query(
       `UPDATE session_messages
           SET is_deleted = TRUE,
               deleted_at = COALESCE($3, deleted_at),
               updated_at = $4
         WHERE session_id = $1
-          AND chat_jid = $2`,
-      [params.sessionId, params.chatJid, params.deletedAt, params.updatedAt]
+          AND chat_jid = ANY($2::text[])`,
+      [params.sessionId, params.chatJids, params.deletedAt, params.updatedAt]
     );
   }
 
@@ -224,12 +228,15 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
 
   async searchByChat(params: {
     sessionId: string;
-    chatJid: string;
+    chatJids: string[];
     limit: number;
     cursor?: { timestamp: Date; messageId: string };
   }): Promise<SessionMessageRecord[]> {
-    const { sessionId, chatJid, limit, cursor } = params;
-    const values: Array<unknown> = [sessionId, chatJid, limit];
+    const { sessionId, chatJids, limit, cursor } = params;
+    if (!chatJids.length) {
+      return [];
+    }
+    const values: Array<unknown> = [sessionId, chatJids, limit];
     let cursorClause = '';
 
     if (cursor?.timestamp && cursor.messageId) {
@@ -243,7 +250,7 @@ export class PostgresSessionMessageRepository implements SessionMessageRepositor
               created_at, updated_at
          FROM session_messages
         WHERE session_id = $1
-          AND chat_jid = $2
+          AND chat_jid = ANY($2::text[])
           ${cursorClause}
         ORDER BY timestamp DESC NULLS LAST, message_id DESC
         LIMIT $3`,
