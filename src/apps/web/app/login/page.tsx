@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginPage() {
@@ -30,102 +31,137 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-black text-white selection:bg-purple-500/30">
-      {/* Background Image with Overlay */}
-      <div
-        className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-1000 scale-105"
-      >
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+    <div className="min-h-screen bg-[#d1d7db] dark:bg-[#111b21] font-sans flex flex-col relative overflow-hidden">
+
+      {/* Background Accent (Top Strip - Modernized) */}
+      <div className="absolute top-0 w-full h-[220px] bg-[#00a884] z-0">
+        {/* Subtle pattern or gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/5 to-transparent"></div>
       </div>
 
-      {/* Animated Glowing Orbs */}
-      <div className="absolute top-1/4 -left-20 w-80 h-80 bg-purple-600/20 rounded-full blur-[100px] animate-pulse" />
-      <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-blue-600/20 rounded-full blur-[120px] animate-pulse delay-700" />
+      {/* Header/Logo Area */}
+      <div className="relative z-10 max-w-[1000px] mx-auto w-full px-5 py-5 lg:px-0 flex items-center gap-3 mb-8">
+        <Link href="/" className="flex items-center gap-3 text-white hover:opacity-90 transition-opacity">
+          <span className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-[#00a884] shadow-sm">
+            <svg viewBox="0 0 33 33" width="18" height="18" fill="currentColor"><path d="M16.6 2c-8 0-14.5 6.5-14.5 14.5 0 8 6.5 14.5 14.5 14.5 8 0 14.5-6.5 14.5-14.5C31.1 8.5 24.6 2 16.6 2zm0 25.5c-6.1 0-11-4.9-11-11s4.9-11 11-11 11 4.9 11 11-4.9 11-11 11z"></path></svg>
+          </span>
+          <span className="font-bold text-sm uppercase tracking-widest leading-none mt-0.5">Anna Sessions</span>
+        </Link>
+      </div>
 
-      {/* Login Container */}
-      <div className="relative z-10 w-full max-w-lg px-6">
-        <div className="mb-12 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 mb-4 rounded-2xl bg-gradient-to-br from-purple-500 to-blue-600 shadow-lg shadow-purple-500/20">
-            <span className="text-2xl font-bold">A</span>
-          </div>
-          <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
-            Bienvenido a Anna
-          </h1>
-          <p className="mt-2 text-zinc-400 font-medium">
-            Gestión inteligente de sesiones de WhatsApp
-          </p>
-        </div>
+      {/* Main Card */}
+      <div className="relative z-10 max-w-[1000px] mx-auto w-full px-4 lg:px-0 flex-1 flex flex-col mb-10">
+        <div className="bg-white dark:bg-[#202c33] rounded-[3px] shadow-2xl flex flex-col md:flex-row overflow-hidden min-h-[500px] lg:h-[calc(100vh-180px)] max-h-[700px]">
 
-        <div className="p-8 backdrop-blur-xl bg-white/[0.03] border border-white/10 rounded-3xl shadow-2xl">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="p-4 text-sm font-medium text-red-200 bg-red-500/10 border border-red-500/20 rounded-xl animate-shake">
-                {error}
+          {/* Left Side: Value Props (Modernized Instructions) */}
+          <div className="p-12 md:w-2/3 flex flex-col justify-center relative overflow-hidden">
+            {/* Decorative Background Elements */}
+            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-[#00a884]/5 rounded-full blur-3xl"></div>
+            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 bg-[#00a884]/10 rounded-full blur-3xl"></div>
+
+            <h1 className="text-3xl md:text-4xl font-extralight text-[#41525d] dark:text-[#e9edef] mb-10 relative z-10 leading-tight">
+              Enterprise-grade<br />
+              <span className="font-semibold text-[#00a884]">WhatsApp Infrastructure</span>
+            </h1>
+
+            <div className="space-y-6 relative z-10">
+              <div className="flex items-start gap-4">
+                <div className="mt-1 w-6 h-6 rounded-full bg-[#f0f2f5] dark:bg-[#111b21] flex items-center justify-center text-[#00a884] font-bold text-xs">
+                  1
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-[#111b21] dark:text-[#e9edef]">Secure Access</h3>
+                  <p className="text-[#54656f] dark:text-[#aebac1] text-sm leading-relaxed mt-1">Log in to manage your high-performance sessions.</p>
+                </div>
               </div>
-            )}
-
-            <div className="space-y-1.5 font-medium">
-              <label htmlFor="email" className="block text-sm text-zinc-400 px-1">
-                Correo Electrónico
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-5 py-3.5 bg-black/40 border border-white/5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40 transition-all duration-200 placeholder:text-zinc-600"
-                placeholder="nombre@ejemplo.com"
-                disabled={isLoading}
-              />
+              <div className="flex items-start gap-4">
+                <div className="mt-1 w-6 h-6 rounded-full bg-[#f0f2f5] dark:bg-[#111b21] flex items-center justify-center text-[#00a884] font-bold text-xs">
+                  2
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-[#111b21] dark:text-[#e9edef]">Monitor Real-time</h3>
+                  <p className="text-[#54656f] dark:text-[#aebac1] text-sm leading-relaxed mt-1">View active connections and message throughput.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-4">
+                <div className="mt-1 w-6 h-6 rounded-full bg-[#f0f2f5] dark:bg-[#111b21] flex items-center justify-center text-[#00a884] font-bold text-xs">
+                  3
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-[#111b21] dark:text-[#e9edef]">Scale Comfortably</h3>
+                  <p className="text-[#54656f] dark:text-[#aebac1] text-sm leading-relaxed mt-1">Add devices and manage heavy loads effortlessly.</p>
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-1.5 font-medium">
-              <label htmlFor="password" className="block text-sm text-zinc-400 px-1">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-5 py-3.5 bg-black/40 border border-white/5 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500/40 transition-all duration-200 placeholder:text-zinc-600"
-                placeholder="••••••••"
-                disabled={isLoading}
-              />
+            <div className="mt-12 pt-8 border-t border-[#e9edef] dark:border-[#2a3942]">
+              <Link href="/" className="text-[#00a884] font-medium text-sm hover:underline">Return to Home</Link>
             </div>
+          </div>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="relative w-full group overflow-hidden py-4 px-6 rounded-2xl bg-white text-black font-bold transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:scale-100"
-            >
-              <div className="relative z-10 flex items-center justify-center gap-2">
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                    <span>Conectando...</span>
-                  </>
-                ) : (
-                  <span>Entrar ahora</span>
+          {/* Right Side: Login Form */}
+          <div className="md:w-1/3 bg-white dark:bg-[#202c33] border-t md:border-t-0 md:border-l border-[#e9edef] dark:border-[#222d34] flex flex-col">
+            <div className="flex-1 flex flex-col justify-center p-10">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-light text-[#41525d] dark:text-[#e9edef]">Sign In</h2>
+                <p className="mt-2 text-sm text-[#8696a0]">to access your console</p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                {error && (
+                  <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded text-sm text-center border border-red-100 dark:border-red-900/30">
+                    {error}
+                  </div>
                 )}
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-200 to-blue-200 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
-          </form>
 
-          <div className="mt-8 pt-6 border-t border-white/5 text-center">
-            <p className="text-zinc-500 text-sm">
-              ¿No tienes una cuenta? <a href="#" className="text-white hover:text-purple-400 transition-colors font-semibold">Regístrate</a>
-            </p>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#00a884] uppercase tracking-wide ml-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg bg-[#f0f2f5] dark:bg-[#2a3942] border-0 text-[#111b21] dark:text-[#e9edef] placeholder-[#8696a0] focus:ring-2 focus:ring-[#00a884] transition-all outline-none"
+                    placeholder="name@company.com"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#00a884] uppercase tracking-wide ml-1">Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg bg-[#f0f2f5] dark:bg-[#2a3942] border-0 text-[#111b21] dark:text-[#e9edef] placeholder-[#8696a0] focus:ring-2 focus:ring-[#00a884] transition-all outline-none"
+                    placeholder="••••••••"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3.5 bg-[#00a884] hover:bg-[#008f6f] text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mt-4"
+                >
+                  {isLoading ? 'Authenticating...' : 'Login'}
+                </button>
+              </form>
+
+              <div className="mt-8 text-center">
+                <div className="flex items-center justify-center gap-2 mb-6">
+                  <div className="h-px bg-[#e9edef] dark:bg-[#2a3942] flex-1"></div>
+                  <span className="text-[10px] text-[#8696a0] uppercase tracking-wider">Secure Connection</span>
+                  <div className="h-px bg-[#e9edef] dark:bg-[#2a3942] flex-1"></div>
+                </div>
+                <p className="text-[10px] text-[#8696a0]">
+                  Protected by HttpOnly Cookies & End-to-End Encryption
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-
-        <p className="mt-8 text-center text-xs text-zinc-600 font-medium tracking-widest uppercase italic">
-          Powering professional communications
-        </p>
       </div>
+
     </div>
   );
 }

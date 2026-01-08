@@ -34,7 +34,7 @@ async function isAuthenticated(request: NextRequest): Promise<boolean> {
   }
 }
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Verificar si la ruta actual es pública
@@ -49,6 +49,14 @@ export async function proxy(request: NextRequest) {
 
   // Verificar autenticación
   const authenticated = await isAuthenticated(request);
+
+  // // Handle root path '/'
+  // if (pathname === '/') {
+  //   if (authenticated) {
+  //     return NextResponse.redirect(new URL('/console', request.url));
+  //   }
+  //   return NextResponse.redirect(new URL('/login', request.url));
+  // }
 
   // Si la ruta es pública, permitir el acceso siempre
   if (isPublicRoute) {
