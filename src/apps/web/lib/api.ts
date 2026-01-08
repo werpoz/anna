@@ -1,12 +1,7 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
 export interface LoginResponse {
-  accessToken: string;
-  user: {
-    id: string;
-    email: string;
-    // Add other user properties as needed
-  };
+  accessTokenExpiresIn: number;
 }
 
 export interface User {
@@ -21,24 +16,10 @@ export async function apiFetch<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
-
-
-  // Add authorization header if we have an access token
-  // The access token is stored in a cookie but backend requires Bearer header
-  let token = '';
-  if (typeof document !== 'undefined') {
-    const match = document.cookie.match(/(^| )accessToken=([^;]+)/);
-    if (match) token = match[2];
-  }
-
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...options.headers,
   };
-
-  if (token) {
-    (headers as any)['Authorization'] = `Bearer ${token}`;
-  }
 
   const defaultOptions: RequestInit = {
     headers,
@@ -93,8 +74,6 @@ export async function refreshToken(): Promise<LoginResponse> {
     method: 'POST',
   });
 
-  // The refreshed access token should be stored in an HTTP-only cookie by the backend
-
   return data;
 }
 
@@ -105,8 +84,6 @@ export async function logout(): Promise<void> {
     });
   } catch (error) {
     console.error('Logout error:', error);
-  } finally {
-    // The token removal is handled by the backend via cookie expiration
   }
 }
 
@@ -115,7 +92,7 @@ export async function getCurrentUser(): Promise<User> {
 }
 
 // WebSocket connection helper
-export function connectWebSocket(token: string): WebSocket {
-  const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/ws/sessions?accessToken=${token}`;
+export function connectWebSocket(): WebSocket {
+  const wsUrl = `${API_BASE_URL.replace('http', 'ws')}/ws/sessions`;
   return new WebSocket(wsUrl);
 }

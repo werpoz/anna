@@ -24,8 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userData = await getCurrentUser();
         setUser(userData);
       } catch (error) {
-        console.error('Auth initialization error:', error);
-        // The user is not authenticated, this is normal for first visit
+        // User not logged in, ignore
       } finally {
         setIsLoading(false);
       }
@@ -34,10 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
   }, []);
 
-  const setAuthCookie = (token: string) => {
-    // Access token usually expires in 15 minutes (900 seconds)
-    document.cookie = `accessToken=${token}; path=/; max-age=900; SameSite=Lax`;
-  };
 
   // Setup automatic token refresh
   useEffect(() => {
@@ -47,9 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const refreshInterval = setInterval(async () => {
         try {
           console.log('Refreshing token...');
-          const data = await refreshToken();
-          setAuthCookie(data.accessToken);
-          console.log('Token refreshed successfully and cookie updated');
+          await refreshToken();
+          console.log('Token refreshed successfully via cookies');
         } catch (error) {
           console.error('Token refresh failed:', error);
           handleLogout();
@@ -63,8 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const handleLogin = async (email: string, password: string) => {
-    const data = await login(email, password);
-    setAuthCookie(data.accessToken);
+    await login(email, password);
 
     // Fetch user details since login response doesn't include it
     const userData = await getCurrentUser();
@@ -78,9 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
-      // Clear cookie
-      document.cookie = 'accessToken=; path=/; max-age=0;';
-      localStorage.removeItem('accessToken');
       router.push('/login');
     }
   };

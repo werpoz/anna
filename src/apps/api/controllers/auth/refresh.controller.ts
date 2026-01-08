@@ -2,7 +2,7 @@ import type { Hono } from 'hono';
 import { InvalidRefreshTokenError } from '@/contexts/Core/Auth/domain/errors/InvalidRefreshTokenError';
 import type { AppEnv } from '@/apps/api/types';
 import type { AuthControllerDeps } from '@/apps/api/controllers/auth/types';
-import { getRefreshCookie, setRefreshCookie } from '@/apps/api/http/authCookies';
+import { getRefreshCookie, setAccessCookie, setRefreshCookie } from '@/apps/api/http/authCookies';
 
 export const registerRefreshRoute = (app: Hono<AppEnv>, deps: AuthControllerDeps): void => {
   app.post('/auth/refresh', async (c) => {
@@ -18,9 +18,10 @@ export const registerRefreshRoute = (app: Hono<AppEnv>, deps: AuthControllerDeps
         ip: c.req.header('x-forwarded-for') ?? undefined,
       });
       setRefreshCookie(c, tokens.refreshToken, tokens.refreshTokenExpiresIn);
+      setAccessCookie(c, tokens.accessToken, tokens.accessTokenExpiresIn);
+
       return c.json(
         {
-          accessToken: tokens.accessToken,
           accessTokenExpiresIn: tokens.accessTokenExpiresIn,
         },
         200

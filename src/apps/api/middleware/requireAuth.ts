@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
 import type { AppEnv } from '@/apps/api/types';
 import { verifyAccessToken } from '@/apps/api/http/verifyAccessToken';
+import { getAccessCookie } from '@/apps/api/http/authCookies';
 
 const getToken = (authorization: string | undefined): string | null => {
   if (!authorization) {
@@ -11,7 +12,7 @@ const getToken = (authorization: string | undefined): string | null => {
 };
 
 export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
-  const token = getToken(c.req.header('authorization'));
+  const token = getAccessCookie(c) || getToken(c.req.header('authorization'));
   if (!token) {
     return c.json({ message: 'missing access token' }, 401);
   }

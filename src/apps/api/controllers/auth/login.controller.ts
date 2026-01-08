@@ -4,7 +4,7 @@ import { UserNotActiveError } from '@/contexts/Core/User/domain/errors/UserNotAc
 import { InvalidArgumentError } from '@/contexts/Shared/domain/value-object/InvalidArgumentError';
 import type { AppEnv } from '@/apps/api/types';
 import type { AuthControllerDeps } from '@/apps/api/controllers/auth/types';
-import { setRefreshCookie } from '@/apps/api/http/authCookies';
+import { setAccessCookie, setRefreshCookie } from '@/apps/api/http/authCookies';
 import { parseRequestBody } from '@/apps/api/http/parseRequestBody';
 
 type LoginPayload = {
@@ -26,9 +26,10 @@ export const registerLoginRoute = (app: Hono<AppEnv>, deps: AuthControllerDeps):
         ip: c.req.header('x-forwarded-for') ?? undefined,
       });
       setRefreshCookie(c, tokens.refreshToken, tokens.refreshTokenExpiresIn);
+      setAccessCookie(c, tokens.accessToken, tokens.accessTokenExpiresIn);
+
       return c.json(
         {
-          accessToken: tokens.accessToken,
           accessTokenExpiresIn: tokens.accessTokenExpiresIn,
         },
         200

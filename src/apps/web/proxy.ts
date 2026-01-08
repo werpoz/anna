@@ -12,7 +12,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:30
 // Función para verificar si el usuario está autenticado
 async function isAuthenticated(request: NextRequest): Promise<boolean> {
   try {
-    const token = request.cookies.get('accessToken')?.value;
+    const token = request.cookies.get('access_token')?.value;
 
     if (!token) {
       return false;

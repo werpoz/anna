@@ -112,8 +112,14 @@ const server = Bun.serve<SessionSocketData>({
     const url = new URL(req.url);
     if (url.pathname === '/ws/sessions') {
       const authHeader = req.headers.get('authorization') ?? '';
+      const cookieHeader = req.headers.get('cookie') ?? '';
       const [, headerToken] = authHeader.split(' ');
-      const token = headerToken || url.searchParams.get('accessToken') || url.searchParams.get('token');
+
+      // Extract from cookie if present
+      const cookieMatch = cookieHeader.match(new RegExp(`(^| )??${env.authAccessCookieName}=([^;]+)`));
+      const cookieToken = cookieMatch ? cookieMatch[2] : null;
+
+      const token = cookieToken || headerToken || url.searchParams.get('accessToken') || url.searchParams.get('token');
 
       if (!token) {
         return new Response('missing access token', { status: 401 });
@@ -135,7 +141,7 @@ const server = Bun.serve<SessionSocketData>({
     return app.fetch(req);
   },
   websocket: {
-    message: () => {},
+    message: () => { },
     open: (ws) => {
       sessionHub.add(ws);
       void sendSessionSnapshot(ws);
