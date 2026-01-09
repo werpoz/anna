@@ -95,6 +95,7 @@ const sendSessionSnapshot = async (ws: ServerWebSocket<SessionSocketData>): Prom
   const payload = {
     tenantId,
     session: session ? session.toPrimitives() : null,
+    sessions: sessions.map((s) => s.toPrimitives()),
   };
 
   ws.send(
@@ -106,8 +107,10 @@ const sendSessionSnapshot = async (ws: ServerWebSocket<SessionSocketData>): Prom
   );
 };
 
+const port = Number(process.env.PORT) || 3000;
+
 const server = Bun.serve<SessionSocketData>({
-  port: 3000,
+  port,
   fetch: async (req, server) => {
     const url = new URL(req.url);
     if (url.pathname === '/ws/sessions') {
