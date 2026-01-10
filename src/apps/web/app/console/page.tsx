@@ -3,12 +3,19 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSessions, Session } from '@/hooks/useSessions';
-import { useChats } from '@/hooks/useChats';
 
-import GlobalSidebar from '@/components/Console/GlobalSidebar';
-import ContextPanel from '@/components/Console/ContextPanel';
-import MainStage from '@/components/Console/MainStage';
+// Modules
+import { useSessions } from '../../modules/Session/application/useSessions';
+import { Session } from '../../modules/Session/domain/Session';
+import { useChats } from '../../modules/Chat/application/useChats';
+
+import SessionSidebar from '../../modules/Session/ui/SessionSidebar';
+import ChatList from '../../modules/Chat/ui/ChatList';
+import AppWelcome from '../../modules/Shared/ui/AppWelcome';
+import SessionQRView from '../../modules/Session/ui/SessionQRView';
+import SessionSyncView from '../../modules/Session/ui/SessionSyncView';
+import SessionWelcome from '../../modules/Session/ui/SessionWelcome';
+import ChatConversation from '../../modules/Chat/ui/ChatConversation';
 
 import {
   Dialog,
@@ -23,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function ConsolePage() {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
 
   // Data Hooks
@@ -91,11 +98,35 @@ export default function ConsolePage() {
 
   if (isLoading || !user) return null; // Or loading spinner
 
+  // Determine Main Content View
+  let mainContent;
+  if (!selectedSession) {
+    mainContent = <AppWelcome />;
+  } else if (selectedSession.status !== 'connected' && !activeChatId) {
+    // If not connected, show QR (Connection Flow)
+    mainContent = <SessionQRView session={selectedSession} />;
+  } else if (!activeChatId) {
+    // Connected but no chat selected
+    if (selectedSession.syncProgress !== undefined) {
+      mainContent = <SessionSyncView session={selectedSession} />;
+    } else {
+      mainContent = <SessionWelcome />;
+    }
+  } else {
+    const activeChat = chats.find(c => c.id === activeChatId);
+    mainContent = <ChatConversation
+      activeChatId={activeChatId}
+      chat={activeChat}
+      messages={messages}
+      onSendMessage={sendMessage}
+    />;
+  }
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#d1d7db] dark:bg-[#0b141a] font-sans">
 
-      {/* 1. Global Navigation Rail */}
-      <GlobalSidebar
+      {/* 1. Global Navigation Rail (Session Module) */}
+      <SessionSidebar
         sessions={sessions}
         selectedSessionId={selectedSessionId}
         onSelectSession={handleSelectSession}
@@ -103,8 +134,8 @@ export default function ConsolePage() {
         userEmail={user.email}
       />
 
-      {/* 2. Context Panel (Chats List) */}
-      <ContextPanel
+      {/* 2. Context Panel (Chat Module - Chat List) */}
+      <ChatList
         session={selectedSession}
         chats={chats}
         activeChatId={activeChatId}
@@ -112,13 +143,8 @@ export default function ConsolePage() {
         onDeleteSession={handleDeleteSession}
       />
 
-      {/* 3. Main Stage (Messages / QR) */}
-      <MainStage
-        session={selectedSession}
-        activeChatId={activeChatId}
-        messages={messages}
-        onSendMessage={sendMessage}
-      />
+      {/* 3. Main Content (Dynamic) */}
+      {mainContent}
 
       {/* Modal: Create Session */}
       <Dialog open={isCreatingSession} onOpenChange={setIsCreatingSession}>

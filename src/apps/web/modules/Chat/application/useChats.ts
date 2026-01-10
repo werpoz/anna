@@ -1,24 +1,6 @@
 import { useState, useEffect } from 'react';
-
-export interface Message {
-    id: string;
-    text: string;
-    sender: 'me' | 'them';
-    timestamp: string;
-    status: 'sent' | 'delivered' | 'read';
-    type?: string;
-    senderJid?: string;
-}
-
-export interface Chat {
-    id: string; // chatJid
-    name: string;
-    avatar?: string;
-    lastMessage: string;
-    unreadCount: number;
-    timestamp: string;
-    isGroup: boolean;
-}
+import { Chat } from '../domain/Chat';
+import { Message } from '../domain/Message';
 
 interface BackendChat {
     chatJid: string;

@@ -1,15 +1,14 @@
 import { useState } from 'react';
-import { Chat } from '@/hooks/useChats';
-import { Session } from '@/hooks/useSessions';
+import { Chat } from '../domain/Chat';
+import { Session } from '../../Session/domain/Session';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { Search, Plus, Trash2, MessageSquarePlus } from "lucide-react";
+import { Search, Trash2, MessageSquarePlus } from "lucide-react";
 
-interface ContextPanelProps {
+interface ChatListProps {
     session: Session | null;
     chats: Chat[];
     activeChatId: string | null;
@@ -17,13 +16,13 @@ interface ContextPanelProps {
     onDeleteSession: () => void;
 }
 
-export default function ContextPanel({
+export default function ChatList({
     session,
     chats,
     activeChatId,
     onSelectChat,
     onDeleteSession,
-}: ContextPanelProps) {
+}: ChatListProps) {
     const [filterMode, setFilterMode] = useState<'unread' | 'groups' | 'chats'>('chats');
     const [searchQuery, setSearchQuery] = useState('');
 

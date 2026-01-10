@@ -1,4 +1,4 @@
-import { Session } from '@/hooks/useSessions';
+import { Session } from '../domain/Session';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Button } from "@/components/ui/button";
 import { Plus, Settings } from "lucide-react";
 
-interface GlobalSidebarProps {
+interface SessionSidebarProps {
     sessions: Session[];
     selectedSessionId: string | null;
     onSelectSession: (session: Session) => void;
@@ -14,13 +14,13 @@ interface GlobalSidebarProps {
     userEmail: string;
 }
 
-export default function GlobalSidebar({
+export default function SessionSidebar({
     sessions,
     selectedSessionId,
     onSelectSession,
     onCreateSession,
     userEmail,
-}: GlobalSidebarProps) {
+}: SessionSidebarProps) {
     return (
         <div className="w-[70px] bg-[#f0f2f5] dark:bg-[#111b21] border-r border-[#d1d7db] dark:border-[#202c33] flex flex-col items-center py-4 gap-4 z-20 h-full">
             {/* User Avatar (Top) */}
@@ -52,8 +52,8 @@ export default function GlobalSidebar({
                                     <div
                                         onClick={() => onSelectSession(session)}
                                         className={`relative group cursor-pointer transition-all duration-200 ${selectedSessionId === session.id
-                                                ? 'opacity-100 scale-105'
-                                                : 'opacity-70 hover:opacity-100 hover:scale-105'
+                                            ? 'opacity-100 scale-105'
+                                            : 'opacity-70 hover:opacity-100 hover:scale-105'
                                             }`}
                                     >
                                         {/* Active Indicator Bar */}
@@ -68,8 +68,8 @@ export default function GlobalSidebar({
 
                                         {/* Status Indicator Dot */}
                                         <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[#f0f2f5] dark:border-[#111b21] flex items-center justify-center ${session.status === 'connected' ? 'bg-[#25D366]'
-                                                : session.status === 'disconnected' ? 'bg-[#ef4444]'
-                                                    : 'bg-[#eab308]'
+                                            : session.status === 'disconnected' ? 'bg-[#ef4444]'
+                                                : 'bg-[#eab308]'
                                             }`}>
                                         </div>
                                     </div>

@@ -1,15 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-
-// Backend Session Type (simplified)
-export interface Session {
-    id: string; // "sessionId"
-    status: 'connected' | 'disconnected' | 'connecting' | 'waiting_qr'; // mapped from backend
-    qr?: string;
-    syncProgress?: number; // 0-100, undefined if not syncing
-    lastSyncedAt?: number; // Timestamp of last completed sync
-    // properties from backend primitives if needed:
-    // failureReason?: string; 
-}
+import { Session } from '../domain/Session';
 
 interface UseSessionsReturn {
     sessions: Session[];
@@ -40,15 +30,19 @@ export function useSessions(): UseSessionsReturn {
         // 1. Get Token
         const getCookies = () => {
             const cookies: { [key: string]: string } = {};
-            document.cookie.split(';').forEach((cookie) => {
-                const [name, value] = cookie.trim().split('=');
-                cookies[name] = value;
-            });
+            if (typeof document !== 'undefined') {
+                document.cookie.split(';').forEach((cookie) => {
+                    const [name, value] = cookie.trim().split('=');
+                    cookies[name] = value;
+                });
+            }
             return cookies;
         };
         const token = getCookies()['access_token'];
 
         // 2. Connect WebSocket
+        if (typeof window === 'undefined') return;
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         // Connect directly to backend port 3000 in dev
         const wsHost = window.location.hostname;
@@ -92,11 +86,6 @@ export function useSessions(): UseSessionsReturn {
                 }
 
                 if (data.type === 'session.status') {
-                    // { type: 'session.status', sessionId: '...', status: '...' }
-                    // Backend sends 'status' as string? Need to verify event structure.
-                    // Assuming: { type: 'session.status', sessionId: '...', payload: { status: '...' } }
-                    // Actually let's assume flat or payload based on common patterns.
-                    // For now, let's look at `data.payload?.status` or `data.status`.
                     const status = data.payload?.status || data.status;
                     const sessionId = data.sessionId;
 
@@ -109,7 +98,6 @@ export function useSessions(): UseSessionsReturn {
 
 
                 if (data.type === 'session.qr' || data.type === 'session.qr.updated') {
-                    // { type: 'session.qr.updated', sessionId: '...', payload: { qr: '...' } }
                     const qr = data.payload?.qr || data.qr;
                     const sessionId = data.sessionId;
 
@@ -122,7 +110,6 @@ export function useSessions(): UseSessionsReturn {
                 }
 
                 if (data.type === 'session.history.sync') {
-                    // { type: 'session.history.sync', sessionId: '...', payload: { progress, isLatest, ... } }
                     const progress = data.payload?.progress;
                     const isLatest = data.payload?.isLatest;
                     const sessionId = data.sessionId;
@@ -140,10 +127,6 @@ export function useSessions(): UseSessionsReturn {
                         ));
                     }
                 }
-
-                // Handle session.created / session.deleted if backend supported them directly
-                // Currently we might rely on UI Optimistic + Re-snapshot if we reconnect.
-                // Or if we trigger a reload.
 
             } catch (err) {
                 console.error('WS Error parsing:', err);
