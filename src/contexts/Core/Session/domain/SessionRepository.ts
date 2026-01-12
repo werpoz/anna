@@ -6,5 +6,6 @@ export interface SessionRepository {
   save(session: Session): Promise<void>;
   search(id: SessionId): Promise<Session | null>;
   searchByTenant(tenantId: SessionTenantId): Promise<Session[]>;
+  searchAll(): Promise<Session[]>;
   delete(id: SessionId): Promise<void>;
 }

@@ -11,6 +11,9 @@ export class InMemorySessionRepository implements SessionRepository {
   constructor() {
     this.sessions = new Map();
   }
+  searchAll(): Promise<Session[]> {
+    throw new Error('Method not implemented.');
+  }
 
   async save(session: Session): Promise<void> {
     this.sessions.set(session.id.value, session);

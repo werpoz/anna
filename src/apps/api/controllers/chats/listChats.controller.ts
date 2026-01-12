@@ -36,6 +36,8 @@ export const registerListChatsRoute = (app: Hono<AppEnv>, deps: ChatControllerDe
     const items = await deps.chatRepository.listByTenant(auth.userId, resolvedSessionId);
     const contacts = await deps.contactRepository.listByTenant(auth.userId, resolvedSessionId);
     const contactNames = new Map<string, string>();
+    const contactAvatars = new Map<string, string>(); // NEW: Store avatar URLs
+
     for (const contact of contacts) {
       const displayName = resolveContactName({
         name: contact.name,
@@ -49,6 +51,14 @@ export const registerListChatsRoute = (app: Hono<AppEnv>, deps: ChatControllerDe
       contactNames.set(contact.contactJid, displayName);
       if (contact.contactLid) {
         contactNames.set(contact.contactLid, displayName);
+      }
+
+      // NEW: Map avatar URLs
+      if (contact.imgUrl) {
+        contactAvatars.set(contact.contactJid, contact.imgUrl);
+        if (contact.contactLid) {
+          contactAvatars.set(contact.contactLid, contact.imgUrl);
+        }
       }
     }
     const aliases = Array.from(new Set(items.map((item) => item.chatJid)));
@@ -102,12 +112,24 @@ export const registerListChatsRoute = (app: Hono<AppEnv>, deps: ChatControllerDe
       return b.lastMessageTs.getTime() - a.lastMessageTs.getTime();
     });
 
+    // Map contact names and avatars to chats
     for (const item of merged) {
       const contactName = contactNames.get(item.chatJid);
       if (contactName) {
         item.chatName = contactName;
       }
+
+      // NEW: Add avatar URL
+      const avatarUrl = contactAvatars.get(item.chatJid);
+      if (avatarUrl) {
+        (item as any).avatar = avatarUrl;
+      }
     }
+
+    // DEBUG: Log to verify avatars are included
+    console.log('[listChats] Returning', merged.length, 'chats');
+    console.log('[listChats] Sample chat with avatar:', merged.find((c: any) => c.avatar) || 'No avatars found');
+    console.log('[listChats] Contact avatars map size:', contactAvatars.size);
 
     return c.json({ sessionId: resolvedSessionId, items: merged }, 200);
   });

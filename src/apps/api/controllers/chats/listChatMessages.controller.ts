@@ -242,18 +242,20 @@ export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatContr
       cursor: cursor ?? undefined,
     });
 
+    console.log(`[listChatMessages] Chat: ${chatJid}, Found ${items.length} messages (limit: ${limit})`);
+
     const messageIds = items.map((item) => item.messageId).filter(Boolean);
     const reactions = messageIds.length
       ? await deps.reactionRepository.listByMessageIds({
-          sessionId: resolvedSessionId,
-          messageIds,
-        })
+        sessionId: resolvedSessionId,
+        messageIds,
+      })
       : [];
     const media = messageIds.length
       ? await deps.mediaRepository.listByMessageIds({
-          sessionId: resolvedSessionId,
-          messageIds,
-        })
+        sessionId: resolvedSessionId,
+        messageIds,
+      })
       : [];
 
     const mentionJidsByMessage = new Map<string, string[]>();
@@ -272,8 +274,8 @@ export const registerListChatMessagesRoute = (app: Hono<AppEnv>, deps: ChatContr
     const mentionNameMap =
       mentionJidSet.size > 0
         ? buildContactNameMap(
-            await deps.contactRepository.listByTenant(auth.userId, resolvedSessionId)
-          )
+          await deps.contactRepository.listByTenant(auth.userId, resolvedSessionId)
+        )
         : {};
 
     const reactionsByMessage = reactions.reduce<Record<string, typeof reactions>>((acc, reaction) => {

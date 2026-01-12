@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Session } from '../domain/Session';
+import { messageEventBus } from '../../Shared/infrastructure/messageEventBus';
 
 interface UseSessionsReturn {
     sessions: Session[];
@@ -125,6 +126,40 @@ export function useSessions(): UseSessionsReturn {
                                 lastSyncedAt: isLatest ? Date.now() : s.lastSyncedAt
                             } : s
                         ));
+                    }
+                }
+
+                // NEW: Handle real-time message events
+                if (data.type === 'session.messages.upsert' || data.type === 'messages.upsert') {
+                    const sessionId = data.sessionId;
+                    const messages = data.payload?.messages || [];
+
+                    if (sessionId && messages.length > 0) {
+                        console.log(`[Real-time] Received ${messages.length} new message(s) for session ${sessionId}`);
+
+                        // Emit to event bus for useChats to consume
+                        messageEventBus.emitNewMessages({ sessionId, messages });
+                    }
+                }
+
+                // NEW: Handle message status updates (sent/delivered/read)
+                if (data.type === 'session.messages.update' || data.type === 'messages.update') {
+                    const sessionId = data.sessionId;
+                    const updates = data.payload?.updates || [];
+
+                    if (sessionId && updates.length > 0) {
+                        console.log(`[Real-time] Received ${updates.length} status update(s)`);
+
+                        updates.forEach((update: any) => {
+                            if (update.status) {
+                                messageEventBus.emitMessageStatus({
+                                    sessionId,
+                                    messageId: update.messageId,
+                                    chatJid: update.remoteJid || update.chatJid,
+                                    status: update.status,
+                                });
+                            }
+                        });
                     }
                 }
 

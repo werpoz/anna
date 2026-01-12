@@ -45,7 +45,7 @@ const mapRowToSession = (row: SessionRow): Session => {
 };
 
 export class PostgresSessionRepository implements SessionRepository {
-  constructor(private readonly pool: Pool) {}
+  constructor(private readonly pool: Pool) { }
 
   async save(session: Session): Promise<void> {
     const primitives = session.toPrimitives();
@@ -101,6 +101,17 @@ export class PostgresSessionRepository implements SessionRepository {
         WHERE tenant_id = $1
         ORDER BY created_at DESC`,
       [tenantId.value]
+    );
+
+    return result.rows.map(mapRowToSession);
+  }
+
+  async searchAll(): Promise<Session[]> {
+    const result = await this.pool.query<SessionRow>(
+      `SELECT id, tenant_id, status, phone, qr, qr_expires_at, connected_at, disconnected_at,
+              disconnected_reason, created_at, updated_at
+         FROM sessions
+        ORDER BY created_at DESC`
     );
 
     return result.rows.map(mapRowToSession);

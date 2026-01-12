@@ -8,13 +8,25 @@ import type {
 } from '@/contexts/Core/Session/domain/SessionMessageRepository';
 
 export class PostgresSessionMessageRepository implements SessionMessageRepository {
-  constructor(private readonly pool: Pool) {}
+  constructor(private readonly pool: Pool) { }
 
   async upsertMany(records: SessionMessageRecord[]): Promise<void> {
     if (!records.length) {
       return;
     }
 
+    // PostgreSQL has a limit of ~65k parameters per query
+    // Each record uses 18 parameters, so max ~3600 records per batch
+    // We use 1000 to be safe and have better performance
+    const BATCH_SIZE = 1000;
+
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+      const batch = records.slice(i, i + BATCH_SIZE);
+      await this.upsertBatch(batch);
+    }
+  }
+
+  private async upsertBatch(records: SessionMessageRecord[]): Promise<void> {
     const columns = [
       'id',
       'tenant_id',

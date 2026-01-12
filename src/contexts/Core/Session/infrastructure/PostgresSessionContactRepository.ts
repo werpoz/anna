@@ -17,13 +17,23 @@ type SessionContactRow = {
 };
 
 export class PostgresSessionContactRepository implements SessionContactRepository {
-  constructor(private readonly pool: Pool) {}
+  constructor(private readonly pool: Pool) { }
 
   async upsertMany(records: SessionContactRecord[]): Promise<void> {
     if (!records.length) {
       return;
     }
 
+    // Each record uses 13 parameters, so max ~5000 records per batch
+    const BATCH_SIZE = 2000;
+
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+      const batch = records.slice(i, i + BATCH_SIZE);
+      await this.upsertBatch(batch);
+    }
+  }
+
+  private async upsertBatch(records: SessionContactRecord[]): Promise<void> {
     const columns = [
       'id',
       'tenant_id',

@@ -23,7 +23,7 @@ const parseDate = (value: Date | string | null): Date | null => {
 };
 
 export class PostgresSessionChatRepository implements SessionChatRepository {
-  constructor(private readonly pool: Pool) {}
+  constructor(private readonly pool: Pool) { }
 
   async upsertMany(records: SessionChatRecord[]): Promise<void> {
     if (!records.length) {

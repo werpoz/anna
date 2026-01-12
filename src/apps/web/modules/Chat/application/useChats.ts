@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Chat } from '../domain/Chat';
 import { Message } from '../domain/Message';
+import type { MessageEvent, MessageStatusEvent } from '../../Shared/infrastructure/messageEventBus';
 
 interface BackendChat {
     chatJid: string;
@@ -79,6 +80,7 @@ export function useChats(sessionId: string | null, lastSyncedAt?: number) {
                         unreadCount: item.unreadCount || 0,
                         timestamp: formatTimestamp(item.lastMessageTs),
                         isGroup: item.chatJid.endsWith('@g.us'),
+                        avatar: (item as any).avatar || undefined, // Profile picture URL from backend
                     }));
                     setChats(mappedChats);
                 } else {
@@ -167,6 +169,69 @@ export function useChats(sessionId: string | null, lastSyncedAt?: number) {
             alert('Failed to send message');
         }
     };
+
+    // Real-time message updates via WebSocket
+    useEffect(() => {
+        if (!sessionId) return;
+
+        const { messageEventBus } = require('../../Shared/infrastructure/messageEventBus');
+
+        // Handle new messages
+        const unsubscribeMessages = messageEventBus.onNewMessages((event: MessageEvent) => {
+            const { sessionId: sid, messages: newMsgs } = event;
+            if (sid !== sessionId) return;
+
+            console.log('[useChats] Received real-time messages:', newMsgs.length);
+
+            const mappedMessages: Message[] = newMsgs.map((item) => ({
+                id: item.id,
+                text: item.text || `[${item.type}]`,
+                sender: item.fromMe ? 'me' : 'them',
+                timestamp: formatTimestamp(item.timestamp),
+                status: 'sent',
+                type: item.type,
+                senderJid: item.senderJid,
+            }));
+
+            // Update messages if the new message belongs to the active chat
+            newMsgs.forEach((msg) => {
+                if (msg.chatJid === activeChatId) {
+                    setMessages((prev) => [...prev, ...mappedMessages.filter(m => m.id === msg.id)]);
+                }
+
+                // Update chat list with new "last message"
+                setChats((prev) =>
+                    prev.map((chat) =>
+                        chat.id === msg.chatJid
+                            ? {
+                                ...chat,
+                                lastMessage: msg.text || `[${msg.type}]`,
+                                timestamp: formatTimestamp(msg.timestamp),
+                                unreadCount: msg.chatJid === activeChatId ? chat.unreadCount : chat.unreadCount + 1,
+                            }
+                            : chat
+                    )
+                );
+            });
+        });
+
+        // Handle message status updates (sent → delivered → read)
+        const unsubscribeStatus = messageEventBus.onMessageStatus((event: MessageStatusEvent) => {
+            const { sessionId: sid, messageId, status } = event;
+            if (sid !== sessionId) return;
+
+            console.log('[useChats] Message status update:', messageId, status);
+
+            setMessages((prev) =>
+                prev.map((m) => (m.id === messageId ? { ...m, status: mapBackendStatus(status) } : m))
+            );
+        });
+
+        return () => {
+            unsubscribeMessages();
+            unsubscribeStatus();
+        };
+    }, [sessionId, activeChatId]);
 
     return {
         chats,

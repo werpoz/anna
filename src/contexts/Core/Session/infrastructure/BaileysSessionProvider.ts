@@ -56,11 +56,14 @@ type ActiveSession = {
   tenantId: string;
 };
 
-const MAX_HISTORY_MESSAGES = 200;
-const MAX_UPSERT_MESSAGES = 50;
-const MAX_CONTACTS = 200;
-const MAX_REACTIONS = 200;
-const MAX_MEDIA_DOWNLOADS = 10;
+// Reasonable limits per batch to prevent memory issues and PostgreSQL parameter limits
+// Repository batching (1000 msgs, 2000 contacts) handles the DB side
+// These limits control memory usage before reaching the repository
+const MAX_HISTORY_MESSAGES = 5000;  // Per history sync batch
+const MAX_UPSERT_MESSAGES = 100;    // Per real-time message burst
+const MAX_CONTACTS = 2000;          // Per contact sync batch
+const MAX_REACTIONS = 500;          // Per reaction batch
+const MAX_MEDIA_DOWNLOADS = 10;     // Limit concurrent media downloads for performance
 const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
 
 export class BaileysSessionProvider implements SessionProvider {
@@ -130,9 +133,9 @@ export class BaileysSessionProvider implements SessionProvider {
       const messages = payload.messages ?? [];
       const reactions = request.handlers.onMessagesReaction
         ? messages
-            .map((message) => buildReactionUpdateFromMessage(message, socket.user?.id ?? null))
-            .filter(isReactionUpdate)
-            .slice(0, MAX_REACTIONS)
+          .map((message) => buildReactionUpdateFromMessage(message, socket.user?.id ?? null))
+          .filter(isReactionUpdate)
+          .slice(0, MAX_REACTIONS)
         : [];
       const nonReactionMessages = messages.filter((message) => !isReactionMessage(message));
       const summaries = nonReactionMessages.slice(0, MAX_HISTORY_MESSAGES).map(buildMessageSummary);
@@ -177,13 +180,29 @@ export class BaileysSessionProvider implements SessionProvider {
           .slice(0, MAX_CONTACTS)
           .map(buildContactSummary)
           .filter(isContactSummary);
-        const contactsPayload: SessionContactsUpsertPayload = {
-          contactsCount: payload.contacts.length,
-          contactsTruncated: payload.contacts.length > contacts.length,
-          contacts,
-          source: 'history',
-        };
-        void request.handlers.onContactsUpsert(contactsPayload);
+
+        // Fetch profile pictures in background (don't block history sync)
+        void fetchProfilePicturesForContacts(socket, contacts, 10)
+          .then((profilePictures) => {
+            // Update contacts with fetched profile pictures
+            contacts.forEach(contact => {
+              const imgUrl = profilePictures.get(contact.id);
+              if (imgUrl) {
+                contact.imgUrl = imgUrl;
+              }
+            });
+
+            const contactsPayload: SessionContactsUpsertPayload = {
+              contactsCount: payload.contacts!.length,
+              contactsTruncated: payload.contacts!.length > contacts.length,
+              contacts,
+              source: 'history',
+            };
+            void request.handlers.onContactsUpsert?.(contactsPayload);
+          })
+          .catch(err => {
+            logger.warn({ err, sessionId: request.sessionId }, 'Failed to fetch profile pictures during history sync');
+          });
       }
     });
 
@@ -219,7 +238,7 @@ export class BaileysSessionProvider implements SessionProvider {
       }
     });
 
-    socket.ev.on('contacts.upsert', (contacts) => {
+    socket.ev.on('contacts.upsert', async (contacts) => {
       if (!request.handlers.onContactsUpsert) {
         return;
       }
@@ -227,6 +246,8 @@ export class BaileysSessionProvider implements SessionProvider {
         .slice(0, MAX_CONTACTS)
         .map(buildContactSummary)
         .filter(isContactSummary);
+
+      // Save contacts immediately, don't block sync
       const contactsPayload: SessionContactsUpsertPayload = {
         contactsCount: contacts.length,
         contactsTruncated: contacts.length > summaries.length,
@@ -234,9 +255,33 @@ export class BaileysSessionProvider implements SessionProvider {
         source: 'event',
       };
       void request.handlers.onContactsUpsert(contactsPayload);
+
+      // Fetch profile pictures in background (non-blocking)
+      void fetchProfilePicturesForContacts(socket, summaries, 10)
+        .then((profilePictures) => {
+          if (profilePictures.size === 0) return;
+          const updated: SessionContactSummary[] = [];
+          for (const c of summaries) {
+            const imgUrl = profilePictures.get(c.id);
+            if (imgUrl) {
+              updated.push({ ...c, imgUrl });
+            }
+          }
+          if (updated.length > 0) {
+            void request.handlers.onContactsUpsert?.({
+              contactsCount: updated.length,
+              contactsTruncated: false,
+              contacts: updated,
+              source: 'event',
+            });
+          }
+        })
+        .catch(err => {
+          logger.warn({ err, sessionId: request.sessionId }, 'Failed to fetch profile pictures for contacts.upsert');
+        });
     });
 
-    socket.ev.on('contacts.update', (contacts) => {
+    socket.ev.on('contacts.update', async (contacts) => {
       if (!request.handlers.onContactsUpsert) {
         return;
       }
@@ -244,6 +289,8 @@ export class BaileysSessionProvider implements SessionProvider {
         .slice(0, MAX_CONTACTS)
         .map(buildContactSummary)
         .filter(isContactSummary);
+
+      // Save contacts immediately, don't block sync
       const contactsPayload: SessionContactsUpsertPayload = {
         contactsCount: contacts.length,
         contactsTruncated: contacts.length > summaries.length,
@@ -251,6 +298,26 @@ export class BaileysSessionProvider implements SessionProvider {
         source: 'event',
       };
       void request.handlers.onContactsUpsert(contactsPayload);
+
+      // Fetch profile pictures in background (non-blocking)
+      void fetchProfilePicturesForContacts(socket, summaries, 3).then((profilePictures) => {
+        if (profilePictures.size === 0) return;
+        const updated: SessionContactSummary[] = [];
+        for (const c of summaries) {
+          const imgUrl = profilePictures.get(c.id);
+          if (imgUrl) {
+            updated.push({ ...c, imgUrl });
+          }
+        }
+        if (updated.length > 0) {
+          void request.handlers.onContactsUpsert?.({
+            contactsCount: updated.length,
+            contactsTruncated: false,
+            contacts: updated,
+            source: 'event',
+          });
+        }
+      });
     });
 
     socket.ev.on('messages.update', (updates) => {
@@ -661,6 +728,59 @@ const buildContactSummary = (contact: Partial<Contact>): SessionContactSummary |
     imgUrl: contact.imgUrl,
     status: contact.status,
   };
+};
+
+/**
+ * Fetches profile picture URLs for contacts that don't have them
+ * Rate-limited to avoid WhatsApp blocks
+ */
+const fetchProfilePicturesForContacts = async (
+  socket: WASocket,
+  contacts: SessionContactSummary[],
+  maxConcurrent = 5
+): Promise<Map<string, string>> => {
+  const profilePictures = new Map<string, string>();
+  const contactsNeedingPics = contacts.filter(c => !c.imgUrl && c.id);
+
+  if (contactsNeedingPics.length === 0) {
+    return profilePictures;
+  }
+
+  logger.info(`Fetching profile pictures for ${contactsNeedingPics.length} contacts`);
+
+  // Process in batches to avoid rate limiting
+  for (let i = 0; i < contactsNeedingPics.length; i += maxConcurrent) {
+    const batch = contactsNeedingPics.slice(i, i + maxConcurrent);
+
+    const results = await Promise.allSettled(
+      batch.map(async (contact) => {
+        try {
+          // Try to get profile picture URL
+          const jid = contact.id;
+          const imgUrl = await socket.profilePictureUrl(jid, 'image');
+
+          if (imgUrl) {
+            profilePictures.set(jid, imgUrl);
+            logger.debug(`Got profile picture for ${jid}`);
+          }
+
+          return { jid, imgUrl };
+        } catch (error) {
+          // Contact might not have a profile picture or we don't have permission
+          logger.debug(`Could not fetch profile picture for ${contact.id}: ${error instanceof Error ? error.message : 'unknown'}`);
+          return { jid: contact.id, imgUrl: null };
+        }
+      })
+    );
+
+    // Small delay between batches to avoid rate limiting (200ms is usually sufficient)
+    if (i + maxConcurrent < contactsNeedingPics.length) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+  }
+
+  logger.info(`Successfully fetched ${profilePictures.size} profile pictures`);
+  return profilePictures;
 };
 
 const buildMessageStatusUpdate = (

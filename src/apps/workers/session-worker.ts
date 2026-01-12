@@ -157,4 +157,40 @@ const consumer = new RedisSessionCommandConsumer(redis, sessionService, {
 
 logger.info('Session worker started');
 
+// Auto-Resume: Reconnect all active sessions on startup
+logger.info('Auto-resume: Checking for active sessions...');
+try {
+  const allSessions = await sessionRepository.searchAll();
+  logger.info(`Found ${allSessions.length} total sessions in database`);
+
+  const sessionsToResume = allSessions.filter(
+    (session) => session.status.value !== 'disconnected'
+  );
+
+  if (sessionsToResume.length === 0) {
+    logger.info('No active sessions to resume');
+  } else {
+    logger.info(`Resuming ${sessionsToResume.length} active session(s)...`);
+
+    for (const session of sessionsToResume) {
+      try {
+        logger.info(
+          `Resuming session ${session.id.value} (status: ${session.status.value}, tenant: ${session.tenantId.value})`
+        );
+        await startSession.execute(session.id.value, session.tenantId.value);
+        logger.info(`✓ Session ${session.id.value} resumed successfully`);
+      } catch (error) {
+        logger.error(
+          error as Error,
+          `✗ Failed to resume session ${session.id.value}`
+        );
+      }
+    }
+
+    logger.info('Auto-resume completed');
+  }
+} catch (error) {
+  logger.error(error as Error, 'Auto-resume failed with error');
+}
+
 await consumer.start();
