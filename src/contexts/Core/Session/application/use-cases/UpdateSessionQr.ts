@@ -7,7 +7,7 @@ export class UpdateSessionQr {
   constructor(
     private readonly repository: SessionRepository,
     private readonly eventBus: EventBus
-  ) {}
+  ) { }
 
   async execute(sessionId: string, qr: string, expiresAt: Date): Promise<void> {
     const id = new SessionId(sessionId);

@@ -13,6 +13,21 @@ interface ChatConversationProps {
     onSendMessage: (text: string) => void;
 }
 
+const FormattedMessageText = ({ text, mentions }: { text: string; mentions?: Array<{ jid: string; name: string | null }> }) => {
+    if (!mentions || mentions.length === 0) return <>{text}</>;
+
+    let result = text;
+    mentions.forEach(({ jid, name }) => {
+        if (!name) return;
+        const userPart = jid.split('@')[0];
+        // Replace @user with @Name
+        const regex = new RegExp(`@${userPart}\\b`, 'g'); // Added word boundary to avoid prefix matching
+        result = result.replace(regex, `@${name}`);
+    });
+
+    return <>{result}</>;
+};
+
 export default function ChatConversation({
     chat,
     messages,
@@ -97,9 +112,48 @@ export default function ChatConversation({
                                     </svg>
                                 </span>
 
-                                <div className="px-1 pt-1 pb-4 whitespace-pre-wrap break-words">
-                                    {message.text}
-                                </div>
+                                {message.media && (
+                                    <div className="mb-1">
+                                        {message.media.kind === 'image' && (
+                                            <img
+                                                src={message.media.url}
+                                                alt="Image"
+                                                className="rounded-lg max-w-full object-cover max-h-[300px]"
+                                                loading="lazy"
+                                                onClick={() => window.open(message.media?.url, '_blank')}
+                                            />
+                                        )}
+                                        {message.media.kind === 'video' && (
+                                            <video
+                                                src={message.media.url}
+                                                controls
+                                                className="rounded-lg max-w-full max-h-[300px]"
+                                            />
+                                        )}
+                                        {message.media.kind === 'audio' && (
+                                            <div className="flex items-center gap-2 min-w-[240px] py-1">
+                                                <audio
+                                                    src={message.media.url}
+                                                    controls
+                                                    className="w-full h-8"
+                                                />
+                                            </div>
+                                        )}
+                                        {message.media.kind === 'sticker' && (
+                                            <img
+                                                src={message.media.url}
+                                                alt="Sticker"
+                                                className="w-32 h-32 object-contain"
+                                                loading="lazy"
+                                            />
+                                        )}
+                                    </div>
+                                )}
+                                {message.text && (
+                                    <div className="px-1 pt-1 pb-4 whitespace-pre-wrap break-words">
+                                        <FormattedMessageText text={message.text} mentions={message.mentions} />
+                                    </div>
+                                )}
 
                                 <div className="absolute right-2 bottom-1 flex items-center gap-1 select-none">
                                     <span className="text-[11px] text-[#667781] dark:text-[#8696a0] h-[15px]">{message.timestamp}</span>

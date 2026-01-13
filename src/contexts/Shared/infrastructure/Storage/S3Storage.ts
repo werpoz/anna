@@ -21,7 +21,13 @@ export class S3Storage {
     this.bucket = env.s3Bucket;
     this.endpoint = env.s3Endpoint;
     this.forcePathStyle = env.s3ForcePathStyle;
-    this.publicBaseUrl = env.s3PublicBaseUrl?.trim() ? env.s3PublicBaseUrl.trim() : null;
+
+    // Prioritize S3_URL_DEV over S3_PUBLIC_BASE_URL if it exists
+    const devUrl = env.s3UrlDev?.trim();
+    const prodUrl = env.s3PublicBaseUrl?.trim();
+
+    this.publicBaseUrl = devUrl || prodUrl || null;
+
     this.client = new S3Client({
       region: env.s3Region,
       endpoint: env.s3Endpoint,

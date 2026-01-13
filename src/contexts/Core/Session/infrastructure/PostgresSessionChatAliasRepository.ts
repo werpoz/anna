@@ -10,7 +10,7 @@ type ChatAliasRow = {
 };
 
 export class PostgresSessionChatAliasRepository implements SessionChatAliasRepository {
-  constructor(private readonly pool: Pool) {}
+  constructor(private readonly pool: Pool) { }
 
   async resolveChatKey(params: { sessionId: string; alias: string }): Promise<string | null> {
     const result = await this.pool.query<{ chat_key: string }>(

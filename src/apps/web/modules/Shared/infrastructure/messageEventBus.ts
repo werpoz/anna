@@ -11,6 +11,12 @@ export interface MessageEvent {
         timestamp: string;
         type: string;
         senderJid?: string;
+        media?: {
+            kind: 'image' | 'video' | 'audio' | 'document' | 'sticker';
+            url: string;
+            mime: string;
+            fileName?: string;
+        } | null;
     }>;
 }
 

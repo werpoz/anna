@@ -97,6 +97,7 @@ export const env = {
   s3SecretKey: process.env.S3_SECRET_KEY ?? '',
   s3Bucket: process.env.S3_BUCKET ?? '',
   s3PublicBaseUrl: process.env.S3_PUBLIC_BASE_URL ?? '',
+  s3UrlDev: process.env.S3_URL_DEV ?? '', // Development public URL (overrides s3PublicBaseUrl in dev)
   s3ForcePathStyle: booleanOrDefault(process.env.S3_FORCE_PATH_STYLE, false),
 };
 

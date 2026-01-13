@@ -34,7 +34,7 @@ export class StartSession {
     private readonly publishSessionMessagesDelete: PublishSessionMessagesDelete,
     private readonly publishSessionMessagesReaction: PublishSessionMessagesReaction,
     private readonly publishSessionMessagesMedia: PublishSessionMessagesMedia
-  ) {}
+  ) { }
 
   async execute(sessionId: string, tenantId: string): Promise<void> {
     const id = new SessionId(sessionId);

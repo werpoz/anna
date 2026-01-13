@@ -20,6 +20,16 @@ interface BackendMessage {
     type: string;
     text: string | null;
     status: string | null;
+    media: {
+        kind: 'image' | 'video' | 'audio' | 'document' | 'sticker';
+        url: string;
+        mime: string;
+        fileName?: string;
+    } | null;
+    mentions?: Array<{
+        jid: string;
+        name: string | null;
+    }>;
 }
 
 const formatTimestamp = (isoString: string | null): string => {
@@ -110,12 +120,14 @@ export function useChats(sessionId: string | null, lastSyncedAt?: number) {
                 if (data.items && Array.isArray(data.items)) {
                     const mappedMessages: Message[] = data.items.map((item: BackendMessage) => ({
                         id: item.id,
-                        text: item.text || `[${item.type}]`,
+                        text: item.text || (item.media ? '' : `[${item.type}]`),
                         sender: item.fromMe ? 'me' : 'them',
                         timestamp: formatTimestamp(item.timestamp),
                         status: mapBackendStatus(item.status),
                         type: item.type,
                         senderJid: item.senderJid,
+                        media: item.media,
+                        mentions: item.mentions,
                     }));
                     // Backend returns newest first, reverse for chat display (oldest first)
                     setMessages(mappedMessages.reverse());
@@ -185,12 +197,13 @@ export function useChats(sessionId: string | null, lastSyncedAt?: number) {
 
             const mappedMessages: Message[] = newMsgs.map((item) => ({
                 id: item.id,
-                text: item.text || `[${item.type}]`,
+                text: item.text || (item.media ? '' : `[${item.type}]`),
                 sender: item.fromMe ? 'me' : 'them',
                 timestamp: formatTimestamp(item.timestamp),
                 status: 'sent',
                 type: item.type,
                 senderJid: item.senderJid,
+                media: item.media,
             }));
 
             // Update messages if the new message belongs to the active chat

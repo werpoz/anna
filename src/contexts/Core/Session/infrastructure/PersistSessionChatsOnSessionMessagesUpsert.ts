@@ -5,6 +5,8 @@ import { SessionMessagesUpsertDomainEvent } from '@/contexts/Core/Session/domain
 import type { SessionMessageSummary } from '@/contexts/Core/Session/application/SessionProvider';
 import type { SessionChatRecord } from '@/contexts/Core/Session/domain/SessionChatRepository';
 import { PostgresSessionChatRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatRepository';
+import { PostgresSessionChatAliasRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionChatAliasRepository';
+import { ensureAliases } from '@/contexts/Core/Session/infrastructure/chatAlias';
 
 const resolveTimestamp = (value?: number): Date | null => {
   if (!value) {
@@ -63,13 +65,14 @@ const toRecord = (
 };
 
 export class PersistSessionChatsOnSessionMessagesUpsert
-  implements DomainEventSubscriber<SessionMessagesUpsertDomainEvent>
-{
+  implements DomainEventSubscriber<SessionMessagesUpsertDomainEvent> {
   private readonly repository: PostgresSessionChatRepository;
+  private readonly chatAliasRepository: PostgresSessionChatAliasRepository;
 
   constructor() {
     const pool = new Pool({ connectionString: env.databaseUrl });
     this.repository = new PostgresSessionChatRepository(pool);
+    this.chatAliasRepository = new PostgresSessionChatAliasRepository(pool);
   }
 
   subscribedTo(): Array<typeof SessionMessagesUpsertDomainEvent> {
@@ -81,6 +84,15 @@ export class PersistSessionChatsOnSessionMessagesUpsert
     const latest = pickLatestByChat(domainEvent.payload.messages);
     const records: SessionChatRecord[] = [];
     const shouldIncrementUnread = domainEvent.payload.upsertType === 'notify';
+
+    const aliases = Array.from(latest.keys());
+    await ensureAliases({
+      repository: this.chatAliasRepository,
+      sessionId: domainEvent.aggregateId,
+      tenantId: domainEvent.tenantId,
+      aliases,
+      now,
+    });
 
     for (const summary of latest.values()) {
       const unreadDelta = shouldIncrementUnread && !summary.fromMe ? 1 : 0;

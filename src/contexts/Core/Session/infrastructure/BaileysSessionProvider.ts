@@ -182,8 +182,8 @@ export class BaileysSessionProvider implements SessionProvider {
           .filter(isContactSummary);
 
         // Fetch profile pictures in background (don't block history sync)
-        void fetchProfilePicturesForContacts(socket, contacts, 10)
-          .then((profilePictures) => {
+        void fetchAndStoreProfilePictures(socket, contacts, this.mediaStorage, 10)
+          .then((profilePictures: Map<string, string>) => {
             // Update contacts with fetched profile pictures
             contacts.forEach(contact => {
               const imgUrl = profilePictures.get(contact.id);
@@ -257,8 +257,8 @@ export class BaileysSessionProvider implements SessionProvider {
       void request.handlers.onContactsUpsert(contactsPayload);
 
       // Fetch profile pictures in background (non-blocking)
-      void fetchProfilePicturesForContacts(socket, summaries, 10)
-        .then((profilePictures) => {
+      void fetchAndStoreProfilePictures(socket, summaries, this.mediaStorage, 10)
+        .then((profilePictures: Map<string, string>) => {
           if (profilePictures.size === 0) return;
           const updated: SessionContactSummary[] = [];
           for (const c of summaries) {
@@ -300,24 +300,25 @@ export class BaileysSessionProvider implements SessionProvider {
       void request.handlers.onContactsUpsert(contactsPayload);
 
       // Fetch profile pictures in background (non-blocking)
-      void fetchProfilePicturesForContacts(socket, summaries, 3).then((profilePictures) => {
-        if (profilePictures.size === 0) return;
-        const updated: SessionContactSummary[] = [];
-        for (const c of summaries) {
-          const imgUrl = profilePictures.get(c.id);
-          if (imgUrl) {
-            updated.push({ ...c, imgUrl });
+      void fetchAndStoreProfilePictures(socket, summaries, this.mediaStorage, 10)
+        .then((profilePictures: Map<string, string>) => {
+          if (profilePictures.size === 0) return;
+          const updated: SessionContactSummary[] = [];
+          for (const c of summaries) {
+            const imgUrl = profilePictures.get(c.id);
+            if (imgUrl) {
+              updated.push({ ...c, imgUrl });
+            }
           }
-        }
-        if (updated.length > 0) {
-          void request.handlers.onContactsUpsert?.({
-            contactsCount: updated.length,
-            contactsTruncated: false,
-            contacts: updated,
-            source: 'event',
-          });
-        }
-      });
+          if (updated.length > 0) {
+            void request.handlers.onContactsUpsert?.({
+              contactsCount: updated.length,
+              contactsTruncated: false,
+              contacts: updated,
+              source: 'event',
+            });
+          }
+        });
     });
 
     socket.ev.on('messages.update', (updates) => {
@@ -734,10 +735,15 @@ const buildContactSummary = (contact: Partial<Contact>): SessionContactSummary |
  * Fetches profile picture URLs for contacts that don't have them
  * Rate-limited to avoid WhatsApp blocks
  */
-const fetchProfilePicturesForContacts = async (
+/**
+ * Fetches profile pictures for contacts and uploads them to R2 storage
+ * Returns a map of JID -> R2 public URL (not WhatsApp CDN URL)
+ */
+const fetchAndStoreProfilePictures = async (
   socket: WASocket,
   contacts: SessionContactSummary[],
-  maxConcurrent = 5
+  mediaStorage: S3Storage | null,
+  maxConcurrent = 10
 ): Promise<Map<string, string>> => {
   const profilePictures = new Map<string, string>();
   const contactsNeedingPics = contacts.filter(c => !c.imgUrl && c.id);
@@ -746,40 +752,65 @@ const fetchProfilePicturesForContacts = async (
     return profilePictures;
   }
 
-  logger.info(`Fetching profile pictures for ${contactsNeedingPics.length} contacts`);
+  logger.info(`Fetching and storing ${contactsNeedingPics.length} profile pictures to R2`);
 
   // Process in batches to avoid rate limiting
   for (let i = 0; i < contactsNeedingPics.length; i += maxConcurrent) {
     const batch = contactsNeedingPics.slice(i, i + maxConcurrent);
 
-    const results = await Promise.allSettled(
+    await Promise.allSettled(
       batch.map(async (contact) => {
         try {
-          // Try to get profile picture URL
           const jid = contact.id;
-          const imgUrl = await socket.profilePictureUrl(jid, 'image');
 
-          if (imgUrl) {
-            profilePictures.set(jid, imgUrl);
-            logger.debug(`Got profile picture for ${jid}`);
+          // Step 1: Get profile picture URL from WhatsApp
+          const whatsappUrl = await socket.profilePictureUrl(jid, 'image');
+
+          if (!whatsappUrl) {
+            return;
           }
 
-          return { jid, imgUrl };
+          // Step 2: Download image from WhatsApp CDN
+          const response = await fetch(whatsappUrl);
+          if (!response.ok) {
+            logger.warn({ jid, status: response.status }, 'Failed to download profile picture from WhatsApp CDN');
+            return;
+          }
+
+          const imageBuffer = Buffer.from(await response.arrayBuffer());
+          const contentType = response.headers.get('content-type') || 'image/jpeg';
+
+          // Step 3: Upload to R2 if storage is configured
+          if (mediaStorage) {
+            const sanitizedJid = jid.replace(/[^a-zA-Z0-9]/g, '_');
+            const key = `profile-pictures/${sanitizedJid}.jpg`;
+
+            const result = await mediaStorage.uploadBuffer({
+              key,
+              body: imageBuffer,
+              contentType,
+            });
+
+            profilePictures.set(jid, result.url);
+            logger.debug({ jid, r2Url: result.url }, 'Profile picture stored in R2');
+          } else {
+            // Fallback: use WhatsApp URL if R2 not configured
+            profilePictures.set(jid, whatsappUrl);
+            logger.debug({ jid }, 'R2 not configured, using WhatsApp CDN URL');
+          }
         } catch (error) {
-          // Contact might not have a profile picture or we don't have permission
-          logger.debug(`Could not fetch profile picture for ${contact.id}: ${error instanceof Error ? error.message : 'unknown'}`);
-          return { jid: contact.id, imgUrl: null };
+          logger.debug({ jid: contact.id, error: error instanceof Error ? error.message : 'unknown' }, 'Could not fetch/store profile picture');
         }
       })
     );
 
-    // Small delay between batches to avoid rate limiting (200ms is usually sufficient)
+    // Small delay between batches to avoid rate limiting
     if (i + maxConcurrent < contactsNeedingPics.length) {
       await new Promise(resolve => setTimeout(resolve, 200));
     }
   }
 
-  logger.info(`Successfully fetched ${profilePictures.size} profile pictures`);
+  logger.info(`Successfully fetched and stored ${profilePictures.size} profile pictures`);
   return profilePictures;
 };
 
@@ -1087,6 +1118,18 @@ const toBase64 = (value: Uint8Array | Buffer | null | undefined): string | null 
   return Buffer.from(value).toString('base64');
 };
 
+const unwrapMessage = (content: proto.IMessage | null | undefined): proto.IMessage | null | undefined => {
+  if (!content) return null;
+
+  if (content.viewOnceMessage?.message) return unwrapMessage(content.viewOnceMessage.message);
+  if (content.viewOnceMessageV2?.message) return unwrapMessage(content.viewOnceMessageV2.message);
+  if (content.viewOnceMessageV2Extension?.message) return unwrapMessage(content.viewOnceMessageV2Extension.message);
+  if (content.ephemeralMessage?.message) return unwrapMessage(content.ephemeralMessage.message);
+  if (content.documentWithCaptionMessage?.message) return unwrapMessage(content.documentWithCaptionMessage.message);
+  if (content.associatedChildMessage?.message) return unwrapMessage(content.associatedChildMessage.message);
+  return content;
+};
+
 const resolveMediaMeta = (message: proto.IWebMessageInfo): ResolvedMediaMeta | null => {
   const key = message.key ?? {};
   const messageId = key.id ?? '';
@@ -1095,10 +1138,51 @@ const resolveMediaMeta = (message: proto.IWebMessageInfo): ResolvedMediaMeta | n
     return null;
   }
 
-  const content = extractMessageContent(message.message);
+  // Deeply unwrap the message content
+  const unwrapped = unwrapMessage(message.message);
+  const content = extractMessageContent(unwrapped);
   const contentType = getContentType(content);
+
   if (!contentType) {
     return null;
+  }
+
+  // Handle Template Messages (often contain media)
+  if (contentType === 'templateMessage') {
+    const template = content?.templateMessage?.hydratedTemplate || content?.templateMessage?.hydratedFourRowTemplate || content?.templateMessage?.fourRowTemplate;
+    if (template) {
+      if (template.imageMessage) {
+        // Recurse or handle directly
+        const image = template.imageMessage;
+        return {
+          messageId,
+          chatJid,
+          kind: 'image',
+          mime: image.mimetype ?? null,
+          size: resolveNumberValue(image.fileLength),
+          fileName: null,
+          sha256: toBase64(image.fileSha256),
+          width: image.width ?? null,
+          height: image.height ?? null,
+          duration: null,
+        };
+      }
+      if (template.videoMessage) {
+        const video = template.videoMessage;
+        return {
+          messageId,
+          chatJid,
+          kind: 'video',
+          mime: video.mimetype ?? null,
+          size: resolveNumberValue(video.fileLength),
+          fileName: null,
+          sha256: toBase64(video.fileSha256),
+          width: (video as { width?: number }).width ?? null,
+          height: (video as { height?: number }).height ?? null,
+          duration: video.seconds ?? null,
+        };
+      }
+    }
   }
 
   if (contentType === 'imageMessage') {
@@ -1133,9 +1217,9 @@ const resolveMediaMeta = (message: proto.IWebMessageInfo): ResolvedMediaMeta | n
       size: resolveNumberValue(video.fileLength),
       fileName: null,
       sha256: toBase64(video.fileSha256),
-      width: video.width ?? null,
-      height: video.height ?? null,
-      duration: resolveNumberValue(video.seconds) ?? null,
+      width: (video as { width?: number }).width ?? null,
+      height: (video as { height?: number }).height ?? null,
+      duration: video.seconds ?? null,
     };
   }
 
@@ -1154,7 +1238,7 @@ const resolveMediaMeta = (message: proto.IWebMessageInfo): ResolvedMediaMeta | n
       sha256: toBase64(audio.fileSha256),
       width: null,
       height: null,
-      duration: resolveNumberValue(audio.seconds) ?? null,
+      duration: audio.seconds ?? null,
     };
   }
 
