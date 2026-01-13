@@ -107,15 +107,21 @@ export class PostgresSessionChatRepository implements SessionChatRepository {
     let where = 'tenant_id = $1';
     if (sessionId) {
       params.push(sessionId);
-      where += ' AND session_id = $2';
+      where += ' AND sc.session_id = $2';
     }
 
     const result = await this.pool.query<SessionChatRow>(
-      `SELECT chat_jid, chat_name, last_message_id, last_message_ts, last_message_text,
-              last_message_type, unread_count
-         FROM session_chats
-        WHERE ${where}
-        ORDER BY last_message_ts DESC NULLS LAST`,
+      `SELECT sc.chat_jid,
+              COALESCE(sc.chat_name, con.name, con.verified_name, con.notify) as chat_name,
+              sc.last_message_id,
+              sc.last_message_ts,
+              sc.last_message_text,
+              sc.last_message_type,
+              sc.unread_count
+         FROM session_chats sc
+         LEFT JOIN session_contacts con ON sc.session_id = con.session_id AND (sc.chat_jid = con.contact_jid OR sc.chat_jid = con.contact_lid)
+        WHERE sc.${where}
+        ORDER BY sc.last_message_ts DESC NULLS LAST`,
       params
     );
 

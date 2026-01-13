@@ -116,6 +116,7 @@ export default function ConsolePage() {
     const activeChat = chats.find(c => c.id === activeChatId);
     mainContent = <ChatConversation
       chat={activeChat}
+      meJid={selectedSession?.phone}
       messages={messages}
       onSendMessage={sendMessage}
     />;

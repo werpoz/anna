@@ -10,6 +10,8 @@ import { RedisStreamPublisher } from '@/contexts/Shared/infrastructure/EventBus/
 import { RedisStreamEventBus } from '@/contexts/Shared/infrastructure/EventBus/RedisStreamEventBus';
 import { PostgresSessionRepository } from '@/contexts/Core/Session/infrastructure/PostgresSessionRepository';
 import { BaileysSessionProvider } from '@/contexts/Core/Session/infrastructure/BaileysSessionProvider';
+import { S3Storage } from '@/contexts/Shared/infrastructure/Storage/S3Storage';
+import type { MediaStorage } from '@/contexts/Shared/domain/Storage/MediaStorage';
 import { UpdateSessionQr } from '@/contexts/Core/Session/application/use-cases/UpdateSessionQr';
 import { ConnectSession } from '@/contexts/Core/Session/application/use-cases/ConnectSession';
 import { DisconnectSession } from '@/contexts/Core/Session/application/use-cases/DisconnectSession';
@@ -54,12 +56,19 @@ const publisher = new RedisStreamPublisher(redis, env.eventsStream);
 const eventBus = new RedisStreamEventBus(outboxRepository, publisher);
 
 const sessionRepository = new PostgresSessionRepository(pool);
+
+const mediaStorage: MediaStorage | null =
+  env.s3Endpoint && env.s3Bucket && env.s3AccessKey && env.s3SecretKey
+    ? new S3Storage()
+    : null;
+
 const sessionProvider = new BaileysSessionProvider({
   pool,
   qrTtlMs: env.sessionsQrTtlMs,
   printQrInTerminal: env.sessionsPrintQr,
   browserName: env.sessionsBrowserName,
   markOnlineOnConnect: env.sessionsMarkOnlineOnConnect,
+  mediaStorage,
 });
 
 const updateSessionQr = new UpdateSessionQr(sessionRepository, eventBus);

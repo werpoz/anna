@@ -1,3 +1,25 @@
+export type SessionChatSummary = {
+  id: string;
+  name?: string | null;
+  unreadCount?: number | null;
+  readOnly?: boolean | null;
+  isGroup?: boolean;
+  participantCount?: number | null;
+  createdAt?: number | null;
+  createdBy?: string | null;
+  description?: string | null;
+};
+
+export type SessionChatsUpsertPayload = {
+  chats: SessionChatSummary[];
+  source?: 'history' | 'event';
+};
+
+export type SessionChatsUpdatePayload = {
+  chats: Partial<SessionChatSummary> & { id: string }[];
+  source?: 'event';
+};
+
 export type SessionProviderHandlers = {
   onQr: (qr: string, expiresAt: Date) => Promise<void> | void;
   onConnected: (phone: string, connectedAt: Date) => Promise<void> | void;
@@ -5,6 +27,8 @@ export type SessionProviderHandlers = {
   onHistorySync?: (payload: SessionHistorySyncPayload) => Promise<void> | void;
   onMessagesUpsert?: (payload: SessionMessagesUpsertPayload) => Promise<void> | void;
   onContactsUpsert?: (payload: SessionContactsUpsertPayload) => Promise<void> | void;
+  onChatsUpsert?: (payload: SessionChatsUpsertPayload) => Promise<void> | void;
+  onChatsUpdate?: (payload: SessionChatsUpdatePayload) => Promise<void> | void;
   onMessagesUpdate?: (payload: SessionMessagesUpdatePayload) => Promise<void> | void;
   onPresenceUpdate?: (payload: SessionPresenceUpdatePayload) => Promise<void> | void;
   onMessagesEdit?: (payload: SessionMessagesEditPayload) => Promise<void> | void;
@@ -12,6 +36,23 @@ export type SessionProviderHandlers = {
   onMessagesReaction?: (payload: SessionMessagesReactionPayload) => Promise<void> | void;
   onMessagesMedia?: (payload: SessionMessagesMediaPayload) => Promise<void> | void;
 };
+
+// ... existing types ...
+
+
+
+// ... existing types ...
+
+export interface SessionProvider {
+  start(request: StartSessionRequest): Promise<void>;
+  stop(sessionId: string): Promise<void>;
+  sendMessage(request: SendSessionMessageRequest): Promise<void>;
+  readMessages(request: ReadSessionMessagesRequest): Promise<void>;
+  editMessage(request: EditSessionMessageRequest): Promise<void>;
+  deleteMessage(request: DeleteSessionMessageRequest): Promise<void>;
+  reactMessage(request: ReactSessionMessageRequest): Promise<void>;
+}
+
 
 export type SessionMessageSummary = {
   id: string;
@@ -52,6 +93,8 @@ export type SessionContactSummary = {
   status?: string;
 };
 
+
+
 export type SessionHistorySyncPayload = {
   syncType?: string | null;
   progress?: number | null;
@@ -61,6 +104,7 @@ export type SessionHistorySyncPayload = {
   messagesCount: number;
   messagesTruncated: boolean;
   messages: SessionMessageSummary[];
+  chats?: SessionChatSummary[];
 };
 
 export type SessionMessagesUpsertPayload = {

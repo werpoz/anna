@@ -144,35 +144,61 @@ export function useChats(sessionId: string | null, lastSyncedAt?: number) {
             });
     }, [activeChatId, sessionId]);
 
-    const sendMessage = async (text: string) => {
+    const sendMessage = async (text: string, media?: { file: File; kind: 'image' | 'video' | 'audio' | 'document' }) => {
         if (!activeChatId || !sessionId) return;
 
         // Optimistic UI update
         const tempMessage: Message = {
             id: `temp-${Date.now()}`,
-            text,
+            text: text || (media?.kind ? '' : '...'),
             sender: 'me',
             timestamp: 'Just now',
             status: 'sent',
+            media: media ? {
+                kind: media.kind,
+                url: URL.createObjectURL(media.file), // Temporary local preview
+                mime: media.file.type,
+                fileName: media.file.name
+            } : null
         };
 
         setMessages((prev) => [...prev, tempMessage]);
 
         try {
-            // Call sendMessage endpoint (this might need adjustment based on your actual endpoint)
+            let uploadedMedia = null;
+            if (media) {
+                const formData = new FormData();
+                formData.append('file', media.file);
+                formData.append('kind', media.kind);
+                formData.append('sessionId', sessionId);
+
+                const uploadRes = await fetch('/api/media', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!uploadRes.ok) throw new Error('Failed to upload media');
+                const uploadData = await uploadRes.json();
+                uploadedMedia = uploadData.media;
+            }
+
+            // Call sendMessage endpoint
             const res = await fetch(`/api/chats/${encodeURIComponent(activeChatId)}/messages`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     sessionId,
                     text,
+                    media: uploadedMedia,
                 }),
             });
 
             if (!res.ok) throw new Error('Failed to send message');
 
-            // Optionally update with real message ID from response
-            // For now, we'll rely on WebSocket updates or polling to get the real message
+            // Cleanup local object URL
+            if (tempMessage.media?.url.startsWith('blob:')) {
+                URL.revokeObjectURL(tempMessage.media.url);
+            }
 
         } catch (err) {
             console.error('Failed to send message:', err);

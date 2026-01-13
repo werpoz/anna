@@ -1,4 +1,5 @@
 import type Redis from 'ioredis';
+import { env } from '@/contexts/Shared/infrastructure/config/env';
 import type { OutboxMessage } from '@/contexts/Shared/infrastructure/Outbox/OutboxMessage';
 
 export class RedisStreamPublisher {
@@ -13,6 +14,9 @@ export class RedisStreamPublisher {
   async publish(message: OutboxMessage): Promise<void> {
     await this.redis.xadd(
       this.stream,
+      'MAXLEN',
+      '~',
+      env.eventsStreamMaxLen,
       '*',
       'outboxId',
       message.id,

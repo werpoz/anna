@@ -1,28 +1,38 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import type { Chat } from '../domain/Chat';
 import type { Message } from '../domain/Message';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, MoreVertical, Paperclip, Smile, Mic, SendHorizontal } from "lucide-react";
+import { Search, MoreVertical } from "lucide-react";
+import { MessageInput, type MediaAttachment } from './MessageInput';
 
 interface ChatConversationProps {
     chat?: Chat; // Pass the full chat object to get name/avatar
     messages: Message[];
-    onSendMessage: (text: string) => void;
+    onSendMessage: (text: string, media?: MediaAttachment) => Promise<void> | void;
+    meJid?: string | null;
 }
 
-const FormattedMessageText = ({ text, mentions }: { text: string; mentions?: Array<{ jid: string; name: string | null }> }) => {
+const FormattedMessageText = ({ text, mentions, meJid }: { text: string; mentions?: Array<{ jid: string; name: string | null }>; meJid?: string | null }) => {
     if (!mentions || mentions.length === 0) return <>{text}</>;
 
     let result = text;
     mentions.forEach(({ jid, name }) => {
-        if (!name) return;
-        const userPart = jid.split('@')[0];
-        // Replace @user with @Name
-        const regex = new RegExp(`@${userPart}\\b`, 'g'); // Added word boundary to avoid prefix matching
-        result = result.replace(regex, `@${name}`);
+        // If the mentioned JID is ME, use "@yo"
+        // Need to handle both raw JID and normalized JID
+        let replacementName = name;
+
+        if (meJid && (jid === meJid || jid.split('@')[0] === meJid.split('@')[0])) {
+            replacementName = 'yo';
+        }
+
+        if (replacementName) {
+            // Escape special chars for regex (though JID user part is usually numbers)
+            const userPart = jid.split('@')[0];
+            const regex = new RegExp(`@${userPart}\\b`, 'g');
+            result = result.replace(regex, `@${replacementName}`);
+        }
     });
 
     return <>{result}</>;
@@ -32,8 +42,8 @@ export default function ChatConversation({
     chat,
     messages,
     onSendMessage,
+    meJid,
 }: ChatConversationProps) {
-    const [inputText, setInputText] = useState('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
@@ -43,21 +53,6 @@ export default function ChatConversation({
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
-
-    const handleSend = (e?: React.FormEvent) => {
-        e?.preventDefault();
-        if (inputText.trim()) {
-            onSendMessage(inputText);
-            setInputText('');
-        }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSend();
-        }
-    };
 
     return (
         <div className="flex-1 h-full flex flex-col bg-[#efeae2] dark:bg-[#0b141a] relative">
@@ -151,7 +146,7 @@ export default function ChatConversation({
                                 )}
                                 {message.text && (
                                     <div className="px-1 pt-1 pb-4 whitespace-pre-wrap break-words">
-                                        <FormattedMessageText text={message.text} mentions={message.mentions} />
+                                        <FormattedMessageText text={message.text} mentions={message.mentions} meJid={meJid} />
                                     </div>
                                 )}
 
@@ -173,35 +168,9 @@ export default function ChatConversation({
             </ScrollArea>
 
             {/* Input Area */}
-            <div className="min-h-[62px] bg-[#f0f2f5] dark:bg-[#202c33] px-2 py-2 flex items-center gap-1 z-10 border-t border-[#d1d7db] dark:border-[#222d34]">
-                <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="text-[#54656f] dark:text-[#aebac1] hover:bg-black/5"><Smile className="w-6 h-6" /></Button>
-                    <Button variant="ghost" size="icon" className="text-[#54656f] dark:text-[#aebac1] hover:bg-black/5"><Paperclip className="w-6 h-6" /></Button>
-                </div>
-
-                <form onSubmit={handleSend} className="flex-1 mx-2">
-                    <Input
-                        type="text"
-                        placeholder="Type a message"
-                        className="w-full px-4 py-6 rounded-lg bg-white dark:bg-[#2a3942] text-[15px] text-[#111b21] dark:text-[#e9edef] placeholder:text-[#54656f] border-none shadow-none focus-visible:ring-0"
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                    />
-                </form>
-
-                <div className="flex items-center">
-                    {inputText.trim() ? (
-                        <Button onClick={() => handleSend()} variant="ghost" size="icon" className="text-[#54656f] dark:text-[#aebac1] hover:bg-black/5">
-                            <SendHorizontal className="w-6 h-6" />
-                        </Button>
-                    ) : (
-                        <Button variant="ghost" size="icon" className="text-[#54656f] dark:text-[#aebac1] hover:bg-black/5">
-                            <Mic className="w-6 h-6" />
-                        </Button>
-                    )}
-                </div>
-            </div>
+            <MessageInput
+                onSendMessage={onSendMessage}
+            />
         </div>
     );
 }

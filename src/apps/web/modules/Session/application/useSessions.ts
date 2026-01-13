@@ -72,7 +72,8 @@ export function useSessions(): UseSessionsReturn {
                         const mappedSessions: Session[] = data.payload.sessions.map((s: any) => ({
                             id: s.id,
                             status: mapStatus(s.status),
-                            qr: s.qr || undefined // Include QR if present
+                            qr: s.qr || undefined, // Include QR if present
+                            phone: s.phone || undefined
                         }));
                         setSessions(mappedSessions);
                     } else if (data.payload.session) {
@@ -81,7 +82,8 @@ export function useSessions(): UseSessionsReturn {
                         setSessions([{
                             id: s.id,
                             status: mapStatus(s.status),
-                            qr: s.qr || undefined
+                            qr: s.qr || undefined,
+                            phone: s.phone || undefined
                         }]);
                     }
                 }

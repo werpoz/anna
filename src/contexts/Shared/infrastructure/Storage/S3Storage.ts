@@ -1,12 +1,8 @@
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { env } from '@/contexts/Shared/infrastructure/config/env';
+import type { MediaStorage, UploadBufferParams, UploadResult } from '@/contexts/Shared/domain/Storage/MediaStorage';
 
-export type S3UploadResult = {
-  key: string;
-  url: string;
-};
-
-export class S3Storage {
+export class S3Storage implements MediaStorage {
   private readonly client: S3Client;
   private readonly bucket: string;
   private readonly endpoint: string;
@@ -39,11 +35,7 @@ export class S3Storage {
     });
   }
 
-  async uploadBuffer(params: {
-    key: string;
-    body: Buffer;
-    contentType?: string | null;
-  }): Promise<S3UploadResult> {
+  async uploadBuffer(params: UploadBufferParams): Promise<UploadResult> {
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,

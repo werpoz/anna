@@ -48,6 +48,7 @@ export class SessionHistorySyncDomainEvent extends DomainEvent {
         messagesCount: attributes.messagesCount,
         messagesTruncated: attributes.messagesTruncated,
         messages: attributes.messages ?? [],
+        chats: attributes.chats ?? [],
       },
     });
   }
