@@ -28,23 +28,26 @@ const makeRepositories = (rawByMessageId: Record<string, Record<string, unknown>
   const session = makeConnectedSession();
 
   const sessionRepository: SessionRepository = {
-    async save() {},
+    async save() { },
     async search() {
       return session;
     },
     async searchByTenant() {
       return [session];
     },
-    async delete() {},
+    async searchAll() {
+      return [session];
+    },
+    async delete() { },
   };
 
   const messageRepository: SessionMessageRepository = {
-    async upsertMany() {},
-    async updateStatuses() {},
-    async updateEdits() {},
-    async markDeleted() {},
-    async markDeletedByChat() {},
-    async deleteBySession() {},
+    async upsertMany() { },
+    async updateStatuses() { },
+    async updateEdits() { },
+    async markDeleted() { },
+    async markDeletedByChat() { },
+    async deleteBySession() { },
     async searchByChat() {
       return [];
     },
@@ -60,15 +63,15 @@ const makeProvider = () => {
   let lastRequest: unknown = null;
 
   const provider: SessionProvider = {
-    async start() {},
-    async stop() {},
+    async start() { },
+    async stop() { },
     async sendMessage(request) {
       lastRequest = request;
     },
-    async readMessages() {},
-    async editMessage() {},
-    async deleteMessage() {},
-    async reactMessage() {},
+    async readMessages() { },
+    async editMessage() { },
+    async deleteMessage() { },
+    async reactMessage() { },
   };
 
   return { provider, getLastRequest: () => lastRequest };

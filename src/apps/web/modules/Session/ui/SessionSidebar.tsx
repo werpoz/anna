@@ -1,4 +1,4 @@
-import { Session } from '../domain/Session';
+import type { Session } from '../domain/Session';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -30,7 +30,7 @@ export default function SessionSidebar({
                         <Avatar className="w-10 h-10 cursor-pointer hover:opacity-80 transition-opacity">
                             <AvatarImage src="" />
                             <AvatarFallback className="bg-[#dfe3e5] dark:bg-[#667781] text-white font-bold text-sm">
-                                {userEmail[0].toUpperCase()}
+                                {userEmail?.[0]?.toUpperCase()}
                             </AvatarFallback>
                         </Avatar>
                     </TooltipTrigger>

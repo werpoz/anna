@@ -14,7 +14,7 @@ describe('logger', () => {
     const previousEnv = process.env.NODE_ENV;
 
     process.env.LOG_PRETTY = 'true';
-    process.env.NODE_ENV = 'development';
+    (process.env as any).NODE_ENV = 'development';
 
     try {
       const module = await import(
@@ -28,9 +28,9 @@ describe('logger', () => {
         process.env.LOG_PRETTY = previousPretty;
       }
       if (previousEnv === undefined) {
-        delete process.env.NODE_ENV;
+        delete (process.env as any).NODE_ENV;
       } else {
-        process.env.NODE_ENV = previousEnv;
+        (process.env as any).NODE_ENV = previousEnv;
       }
     }
   });

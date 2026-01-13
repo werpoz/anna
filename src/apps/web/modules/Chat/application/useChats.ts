@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Chat } from '../domain/Chat';
-import { Message } from '../domain/Message';
+import type { Chat } from '../domain/Chat';
+import type { Message } from '../domain/Message';
 import type { MessageEvent, MessageStatusEvent } from '../../Shared/infrastructure/messageEventBus';
 
 interface BackendChat {

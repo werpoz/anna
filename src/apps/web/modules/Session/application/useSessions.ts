@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Session } from '../domain/Session';
+import type { Session } from '../domain/Session';
 import { messageEventBus } from '../../Shared/infrastructure/messageEventBus';
 
 interface UseSessionsReturn {
@@ -34,7 +34,7 @@ export function useSessions(): UseSessionsReturn {
             if (typeof document !== 'undefined') {
                 document.cookie.split(';').forEach((cookie) => {
                     const [name, value] = cookie.trim().split('=');
-                    cookies[name] = value;
+                    if (name && value) cookies[name] = value;
                 });
             }
             return cookies;

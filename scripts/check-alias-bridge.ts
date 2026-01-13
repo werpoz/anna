@@ -13,7 +13,7 @@ async function checkAliasesBridge() {
 
         // Get Key for LID
         const keyRes = await client.query('SELECT chat_key FROM session_chat_aliases WHERE alias = $1', [lid]);
-        if (keyRes.rowCount === 0) {
+        if ((keyRes.rowCount || 0) === 0) {
             console.log('❌ LID has NO alias record.');
             return;
         }
@@ -28,8 +28,8 @@ async function checkAliasesBridge() {
         for (const sibling of siblings.rows) {
             if (sibling.alias_type === 'jid') {
                 const contact = await client.query('SELECT name FROM session_contacts WHERE contact_jid = $1', [sibling.alias]);
-                if (contact.rowCount > 0 && contact.rows[0].name) {
-                    console.log(`🎉 MATCH! Sibling ${sibling.alias} has name: ${contact.rows[0].name}`);
+                if ((contact.rowCount || 0) > 0 && (contact.rows[0] as any).name) {
+                    console.log(`🎉 MATCH! Sibling ${sibling.alias} has name: ${(contact.rows[0] as any).name}`);
                 } else {
                     console.log(`Sibling ${sibling.alias} has no contact name.`);
                 }

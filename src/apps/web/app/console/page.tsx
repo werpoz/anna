@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/web/contexts/AuthContext';
 
 // Modules
 import { useSessions } from '../../modules/Session/application/useSessions';
-import { Session } from '../../modules/Session/domain/Session';
+import type { Session } from '../../modules/Session/domain/Session';
 import { useChats } from '../../modules/Chat/application/useChats';
 
 import SessionSidebar from '../../modules/Session/ui/SessionSidebar';
@@ -57,7 +57,7 @@ export default function ConsolePage() {
   // Auto-select first session
   useEffect(() => {
     if (sessions.length > 0 && !selectedSessionId) {
-      setSelectedSessionId(sessions[0].id);
+      setSelectedSessionId(sessions[0]!.id);
     } else if (sessions.length === 0) {
       if (selectedSessionId) setSelectedSessionId(null);
     }
@@ -71,7 +71,7 @@ export default function ConsolePage() {
       chats.length > 0 &&
       !activeChatId
     ) {
-      setActiveChatId(chats[0].id);
+      setActiveChatId(chats[0]!.id);
     }
   }, [selectedSession, chats, activeChatId]);
 
@@ -115,7 +115,6 @@ export default function ConsolePage() {
   } else {
     const activeChat = chats.find(c => c.id === activeChatId);
     mainContent = <ChatConversation
-      activeChatId={activeChatId}
       chat={activeChat}
       messages={messages}
       onSendMessage={sendMessage}

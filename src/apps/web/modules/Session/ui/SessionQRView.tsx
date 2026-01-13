@@ -1,5 +1,5 @@
 import { QRCodeSVG } from 'qrcode.react';
-import { Session } from '../domain/Session';
+import type { Session } from '../domain/Session';
 
 interface SessionQRViewProps {
     session: Session;

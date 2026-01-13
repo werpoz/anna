@@ -14,14 +14,14 @@ async function checkLids() {
         for (const lid of lids) {
             // Check if this LID exists as a contact_lid
             const asLid = await client.query('SELECT * FROM session_contacts WHERE contact_lid = $1', [lid]);
-            if (asLid.rowCount > 0) {
-                console.log(`[${lid}] Found in contact_lid column! Name: ${asLid.rows[0].name}`);
+            if ((asLid.rowCount || 0) > 0) {
+                console.log(`[${lid}] Found in contact_lid column! Name: ${(asLid.rows[0] as any).name}`);
             } else {
                 console.log(`[${lid}] NOT found in contact_lid column.`);
                 // Check if it exists as contact_jid (unlikely for LID but checking)
                 const asJid = await client.query('SELECT * FROM session_contacts WHERE contact_jid = $1', [lid]);
-                if (asJid.rowCount > 0) {
-                    console.log(`[${lid}] Found in contact_jid column! (Weird) Name: ${asLid.rows[0].name}`);
+                if ((asJid.rowCount || 0) > 0) {
+                    console.log(`[${lid}] Found in contact_jid column! (Weird) Name: ${(asJid.rows[0] as any).name}`);
                 }
             }
         }

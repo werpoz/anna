@@ -1,4 +1,4 @@
-import { Session } from '../domain/Session';
+import type { Session } from '../domain/Session';
 
 interface SessionSyncViewProps {
     session: Session;

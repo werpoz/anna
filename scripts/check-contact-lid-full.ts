@@ -11,8 +11,7 @@ async function checkFull() {
         console.log(`🔍 inspecting ${lid} in contacts...`);
 
         const res = await client.query('SELECT * FROM session_contacts WHERE contact_jid = $1 OR contact_lid = $1', [lid]);
-        console.log(`Found ${res.rowCount} records.`);
-        if (res.rowCount > 0) {
+        if ((res.rowCount || 0) > 0) {
             console.log(res.rows[0]);
         }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Chat } from '../domain/Chat';
-import { Session } from '../../Session/domain/Session';
+import type { Chat } from '../domain/Chat';
+import type { Session } from '../../Session/domain/Session';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
