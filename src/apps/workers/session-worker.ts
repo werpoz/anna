@@ -87,6 +87,7 @@ const sessionAuthRepository = new PostgresSessionAuthRepository(pool);
 const sessionMessageRepository = new PostgresSessionMessageRepository(pool);
 const startSession = new StartSession(
   sessionRepository,
+  sessionMessageRepository,
   eventBus,
   sessionProvider,
   updateSessionQr,

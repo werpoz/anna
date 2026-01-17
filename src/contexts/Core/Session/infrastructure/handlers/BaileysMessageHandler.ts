@@ -33,9 +33,6 @@ import { buildChatSummary } from '../mappers/BaileysChatMapper';
 import { resolveMediaMeta, resolveExtension, buildMediaKey, unwrapMessage } from '../mappers/BaileysMediaMapper';
 import { resolveTimestampSeconds } from '../mappers/BaileysUtils';
 
-const MAX_HISTORY_MESSAGES = 100000;
-const MAX_UPSERT_MESSAGES = 200;
-const MAX_REACTIONS = 1000;
 // MAX_MEDIA_DOWNLOADS removed in favor of concurrency limit
 const MAX_MEDIA_BYTES = 1000 * 1024 * 1024; // 1GB
 const CONCURRENCY_LIMIT = 16;
@@ -73,10 +70,20 @@ export class BaileysMessageHandler {
                 ? messages
                     .map((message) => buildReactionUpdateFromMessage(message, socket.user?.id ?? null))
                     .filter(isReactionUpdate)
-                    .slice(0, MAX_REACTIONS)
                 : [];
-            const nonReactionMessages = messages.filter((message) => !isReactionMessage(message));
-            const summaries = nonReactionMessages.slice(0, MAX_HISTORY_MESSAGES).map(buildMessageSummary);
+            const nonReactionMessages = messages.filter((message) => {
+                if (isReactionMessage(message)) return false;
+
+                const timestamp = resolveTimestampSeconds(message.messageTimestamp);
+                if (!timestamp) return false;
+
+                const messageDate = new Date(timestamp * 1000);
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+                return messageDate >= sevenDaysAgo;
+            });
+            const summaries = nonReactionMessages.map(buildMessageSummary);
             const chatSummaries = chats.map(buildChatSummary);
 
             // Resolve Sync Type
@@ -136,7 +143,7 @@ export class BaileysMessageHandler {
 
             const messages = payload.messages ?? [];
             const nonReactionMessages = messages.filter((message) => !isReactionMessage(message));
-            const summaries = nonReactionMessages.slice(0, MAX_UPSERT_MESSAGES).map(buildMessageSummary);
+            const summaries = nonReactionMessages.map(buildMessageSummary);
             const upsertPayload: SessionMessagesUpsertPayload = {
                 upsertType: payload.type,
                 requestId: payload.requestId,
@@ -253,8 +260,7 @@ export class BaileysMessageHandler {
             }
             const reactions = updates
                 .map((update) => buildReactionUpdateFromEvent(update, socket.user?.id ?? null))
-                .filter(isReactionUpdate)
-                .slice(0, MAX_REACTIONS);
+                .filter(isReactionUpdate);
             if (!reactions.length) {
                 return;
             }

@@ -35,6 +35,7 @@ export type SessionProviderHandlers = {
   onMessagesDelete?: (payload: SessionMessagesDeletePayload) => Promise<void> | void;
   onMessagesReaction?: (payload: SessionMessagesReactionPayload) => Promise<void> | void;
   onMessagesMedia?: (payload: SessionMessagesMediaPayload) => Promise<void> | void;
+  onGetMessage?: (key: SessionMessageKey) => Promise<Record<string, unknown> | null>;
 };
 
 // ... existing types ...

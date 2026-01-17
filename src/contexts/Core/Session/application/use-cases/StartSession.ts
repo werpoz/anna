@@ -2,6 +2,7 @@ import { Session } from '@/contexts/Core/Session/domain/Session';
 import { SessionId } from '@/contexts/Core/Session/domain/SessionId';
 import { SessionTenantId } from '@/contexts/Core/Session/domain/SessionTenantId';
 import type { SessionRepository } from '@/contexts/Core/Session/domain/SessionRepository';
+import type { SessionMessageRepository } from '@/contexts/Core/Session/domain/SessionMessageRepository';
 import type { SessionProvider } from '@/contexts/Core/Session/application/SessionProvider';
 import type { EventBus } from '@/contexts/Shared/domain/EventBus';
 import { UpdateSessionQr } from '@/contexts/Core/Session/application/use-cases/UpdateSessionQr';
@@ -20,6 +21,7 @@ import { PublishSessionMessagesMedia } from '@/contexts/Core/Session/application
 export class StartSession {
   constructor(
     private readonly repository: SessionRepository,
+    private readonly sessionMessageRepository: SessionMessageRepository,
     private readonly eventBus: EventBus,
     private readonly provider: SessionProvider,
     private readonly updateSessionQr: UpdateSessionQr,
@@ -87,6 +89,13 @@ export class StartSession {
         },
         onMessagesMedia: async (payload) => {
           await this.publishSessionMessagesMedia.execute(sessionId, resolvedTenantId, payload);
+        },
+        onGetMessage: async (key) => {
+          const raw = await this.sessionMessageRepository.findRawByMessageId({
+            sessionId,
+            messageId: key.id,
+          });
+          return raw;
         },
       },
     });

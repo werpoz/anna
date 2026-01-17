@@ -1,6 +1,7 @@
 import makeWASocket, {
   Browsers,
   type WASocket,
+  proto,
 } from 'baileys';
 import type { Pool } from 'pg';
 import type {
@@ -76,6 +77,19 @@ export class BaileysSessionProvider implements SessionProvider {
       printQRInTerminal: this.options.printQrInTerminal,
       browser: Browsers.ubuntu(this.options.browserName),
       markOnlineOnConnect: this.options.markOnlineOnConnect,
+      getMessage: async (key) => {
+        if (!request.handlers.onGetMessage) {
+          return undefined;
+        }
+        const message = await request.handlers.onGetMessage({
+          id: key.id!,
+          remoteJid: key.remoteJid!,
+          fromMe: key.fromMe ?? undefined,
+          participant: key.participant ?? undefined,
+        });
+
+        return message ? proto.Message.fromObject(message) : undefined;
+      },
     });
 
     socket.ev.on('creds.update', saveCreds);
